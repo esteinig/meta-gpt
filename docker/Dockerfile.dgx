@@ -1,0 +1,95 @@
+###############################################################################
+#                                   BUILDER                                   #
+###############################################################################
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu20.04 AS builder
+
+ARG APP_USER=appuser
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+# create non-root user
+RUN groupadd -g $APP_GID $APP_USER \
+ && useradd --uid $APP_UID --gid $APP_GID \
+            --shell /usr/sbin/nologin \
+            --create-home \
+            $APP_USER
+
+ENV CUDA_COMPUTE_CAP=${CUDA_COMPUTE_CAP:-80}
+ENV DEBIAN_FRONTEND=noninteractive
+
+# install build deps
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential \
+      curl \
+      ca-certificates \
+      git \
+      pkg-config \
+      libfontconfig1-dev \
+      cmake \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home/$APP_USER/app
+RUN chown -R $APP_USER:$APP_USER /home/$APP_USER/app
+
+USER $APP_USER
+
+# install Rust
+ENV RUSTUP_HOME=/home/$APP_USER/rustup 
+ENV CARGO_HOME=/home/$APP_USER/cargo
+ENV PATH=/home/$APP_USER/cargo/bin:$PATH
+
+RUN curl https://sh.rustup.rs -sSf \
+    | sh -s -- -y --default-toolchain stable \
+ && rustup default stable \
+ && rustup component add rustfmt clippy
+
+# fetch and build
+COPY --chown=$APP_USER:$APP_USER Cargo.toml ./
+# run from repository base need to put the meta-gpt src folder inside meta-gpt for relative path resolution of stack embeddings
+COPY --chown=$APP_USER:$APP_USER meta-gpt/ ./meta-gpt
+
+RUN cargo fetch
+RUN cargo build \
+    --release \
+    --features local
+
+###############################################################################
+#                                  RUNTIME                                    #
+###############################################################################
+FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu20.04
+ 
+# runtime deps
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libfontconfig1 \
+      sudo \
+ && rm -rf /var/lib/apt/lists/*
+
+ARG APP_USER=appuser
+ARG APP_UID=1000
+ARG APP_GID=1000
+
+# recreate unprivileged user
+RUN groupadd -g $APP_GID $APP_USER \
+ && useradd --uid $APP_UID --gid $APP_GID \
+            --shell /usr/sbin/nologin \
+            --create-home \
+            $APP_USER
+            
+# create mount-point for host files
+RUN mkdir -p /mnt/host \
+ && chown $APP_USER:$APP_USER /mnt/host
+
+# copy in the meta-gpt binary into PATH
+COPY --from=builder /home/$APP_USER/app/target/release/meta-gpt /usr/local/bin/meta-gpt
+
+WORKDIR /home/$APP_USER
+
+# Create symlink as root, then exec as non-root app user
+ENTRYPOINT ["/bin/bash", "-c", "\
+  if [ ! -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so ] && [ -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 ]; then \
+    ln -s /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so; \
+  fi && \
+  exec sudo -u appuser --preserve-env=PATH \"$@\"", "--"]

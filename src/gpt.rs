@@ -28,11 +28,11 @@ use petgraph::visit::IntoNodeReferences;
 use plotters::prelude::*;
 
 use crate::error::GptError;
-
+use crate::model::GeneratorModel;
 
 
 #[cfg(feature = "local")]
-use crate::text::{TextGenerator, GeneratorModel};
+use crate::text::TextGenerator;
 
 //
 // === Refined Question Types ===

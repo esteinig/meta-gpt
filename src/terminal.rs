@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
-use crate::gpt::{AssayContext, GptModel, SampleContext};
+use crate::gpt::{GptModel, SampleContext};
+use crate::model::{GeneratorModel, ModelGroup};
 
 #[cfg(feature = "local")]
-use crate::text::{GeneratorModel, TextGeneratorArgs};
+use crate::{gpt::AssayContext, text::TextGeneratorArgs};
 
 /// Cerebro: metagenomic generative practitioner (GPT)
 #[derive(Debug, Parser)]
@@ -90,20 +91,23 @@ pub struct App {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Diagnose a sample given the evidence and decision tree using commercial models
-    DiagnoseApi(DiagnoseApiArgs),
 
+    /// Download local models and tokenizer configurations
+    Download(DownloadArgs),
+
+    #[cfg(feature = "local")]
+    /// Run local text generation on GPU
+    Generate(TextGeneratorArgs),
 
     /// Prefetch tiered data with filter settings for a sample and save to file
-    PrefetchTiered(PrefetchTieredArgs),
+    Prefetch(PrefetchArgs),
     
     #[cfg(feature = "local")]
     /// Diagnose a sample given the evidence and decision tree using local models
     DiagnoseLocal(DiagnoseLocalArgs),
 
-    #[cfg(feature = "local")]
-    /// Run local text generation on GPU
-    Generate(TextGeneratorArgs),
+    /// Diagnose a sample given the evidence and decision tree using commercial models
+    DiagnoseApi(DiagnoseApiArgs),
 }
 
 #[derive(Debug, Args)]
@@ -159,6 +163,20 @@ pub struct DiagnoseApiArgs {
 
 
 #[derive(Debug, Args)]
+pub struct DownloadArgs {
+    /// Models to download
+    #[clap(long, short = 'm', num_args(0..))]
+    pub models: Vec<GeneratorModel>,
+    /// Download a predefined group of models (e.g. qwen, deepseek)
+    #[clap(long, short = 'g')]
+    pub group: Option<ModelGroup>,
+    /// Output directory for downloads
+    #[clap(long, short = 'o', default_value=".")]
+    pub outdir: PathBuf
+}
+
+
+#[derive(Debug, Args)]
 #[clap(group = ArgGroup::new("user")
     .multiple(true)
     .args(&["controls", "tags"])
@@ -166,7 +184,7 @@ pub struct DiagnoseApiArgs {
 #[clap(group = ArgGroup::new("file")
     .args(&["json"])
 )]
-pub struct PrefetchTieredArgs {
+pub struct PrefetchArgs {
     /// Sample identifier for query
     #[clap(long, short = 's', num_args(1..))]
     pub sample: Vec<String>,

@@ -1,6 +1,5 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use clap::{Args, ValueEnum};
-use hf_hub::api::sync::Api;
 use std::io::Write;
 
 use tokenizers::Tokenizer;
@@ -17,7 +16,9 @@ use candle_transformers::models::quantized_qwen3 as qwen3;
 use candle_transformers::utils::apply_repeat_penalty;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 
+use crate::model::GeneratorModel;
 use crate::error::GptError;
+use crate::utils::TokenOutputStream;
 
 
 pub fn device(gpu: usize) -> Result<Device, GptError> {
@@ -127,14 +128,17 @@ impl TextGenerator {
                 )?;
                 Box::new(model)
             },
-            GeneratorModel::Qwen4bQ80 
+            GeneratorModel::DeepseekR10528Qwen38bBf16  
+            | GeneratorModel::DeepseekR10528Qwen38bQ8KXL  
+            | GeneratorModel::DeepseekR10528Qwen38bQ80
+            | GeneratorModel::Qwen4bQ80 
             | GeneratorModel::Qwen8bQ80 
             | GeneratorModel::Qwen14bQ80 
             | GeneratorModel::Qwen32bQ80 
-            | GeneratorModel::Qwen4bQ4KXL 
-            | GeneratorModel::Qwen8bQ4KXL 
-            | GeneratorModel::Qwen14bQ40 
-            | GeneratorModel::Qwen32bQ40 => {
+            | GeneratorModel::Qwen4bQ41 
+            | GeneratorModel::Qwen8bQ41 
+            | GeneratorModel::Qwen14bQ41 
+            | GeneratorModel::Qwen32bQ41 => {
 
                 let model = qwen3::ModelWeights::from_gguf(
                     gguf, 
@@ -191,7 +195,10 @@ impl TextGenerator {
                 };
             },
 
-            GeneratorModel::DeepseekR1Qwen7bQ2KL 
+            GeneratorModel::DeepseekR10528Qwen38bBf16  
+                | GeneratorModel::DeepseekR10528Qwen38bQ8KXL  
+                | GeneratorModel::DeepseekR10528Qwen38bQ80
+                | GeneratorModel::DeepseekR1Qwen7bQ2KL 
                 | GeneratorModel::DeepseekR1Qwen7bQ4KM 
                 | GeneratorModel::DeepseekR1Qwen7bQ80
                 | GeneratorModel::DeepseekR1Qwen14bQ2KL
@@ -204,10 +211,10 @@ impl TextGenerator {
                 | GeneratorModel::Qwen8bQ80 
                 | GeneratorModel::Qwen32bQ80
                 | GeneratorModel::Qwen14bQ80 
-                | GeneratorModel::Qwen4bQ4KXL 
-                | GeneratorModel::Qwen8bQ4KXL 
-                | GeneratorModel::Qwen14bQ40 
-                | GeneratorModel::Qwen32bQ40
+                | GeneratorModel::Qwen4bQ41 
+                | GeneratorModel::Qwen8bQ41 
+                | GeneratorModel::Qwen14bQ41 
+                | GeneratorModel::Qwen32bQ41
             => {}
         }
 
@@ -464,319 +471,26 @@ fn split_think(text: &str) -> (String, String) {
     }
 }
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, ValueEnum)]
-pub enum GeneratorModel {
-    #[value(name = "deepseekr1-llama8b-q4-km")]
-    DeepseekR1Llama8bQ4KM,
-    
-    #[value(name = "deepseekr1-qwen7b-q2-kl")]
-    DeepseekR1Qwen7bQ2KL,
-    #[value(name = "deepseekr1-qwen7b-q4-km")]
-    DeepseekR1Qwen7bQ4KM,
-    #[value(name = "deepseekr1-qwen7b-q8-0")]
-    DeepseekR1Qwen7bQ80,
 
-    #[value(name = "deepseekr1-qwen14b-q2-kl")]
-    DeepseekR1Qwen14bQ2KL,
-    #[value(name = "deepseekr1-qwen14b-q4-km")]
-    DeepseekR1Qwen14bQ4KM,
-    #[value(name = "deepseekr1-qwen14b-q8-0")]
-    DeepseekR1Qwen14bQ80,
-
-    #[value(name = "deepseekr1-qwen32b-q2-kl")]
-    DeepseekR1Qwen32bQ2KL,
-    #[value(name = "deepseekr1-qwen32b-q4-km")]
-    DeepseekR1Qwen32bQ4KM,
-    #[value(name = "deepseekr1-qwen32b-q8-0")]
-    DeepseekR1Qwen32bQ80,
-
-    #[value(name = "qwen3-4b-q4-kxl")]
-    Qwen4bQ4KXL,
-    #[value(name = "qwen3-8b-q4-kxl")]
-    Qwen8bQ4KXL,
-    #[value(name = "qwen3-14b-q4-0")]
-    Qwen14bQ40,
-    #[value(name = "qwen3-32b-q4-0")]
-    Qwen32bQ40,
-
-    #[value(name = "qwen3-4b-q8-0")]
-    Qwen4bQ80,
-    #[value(name = "qwen3-8b-q8-0")]
-    Qwen8bQ80,
-    #[value(name = "qwen3-14b-q8-0")]
-    Qwen14bQ80,
-    #[value(name = "qwen3-32b-q8-0")]
-    Qwen32bQ80,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ModelGroup {
+    Qwen,
+    NativeQwen,
+    Deepseek,
+    DeepseekQwen,
+    DeepseekLlama,
 }
-
-impl GeneratorModel {
-
-    /// Download and save the GGUF model file as `{model_name}.{ext}`
-    pub fn save_model(&self, outdir: &Path) -> Result<PathBuf, GptError> {
-        let src = self.download_model()?;
-        std::fs::create_dir_all(outdir)?;
-        let dest = outdir.join(&self.model_file());
-        std::fs::copy(&src, &dest)?;
-        Ok(dest)
-    }
-    /// Download and save the tokenizer to `{model_name}.tokenizer.json`
-    pub fn save_tokenizer(&self, outdir: &Path) -> Result<PathBuf, GptError> {
-        let src = self.download_tokenizer()?;
-        std::fs::create_dir_all(outdir)?;
-        let dest = outdir.join(&self.tokenizer_file());
-        std::fs::copy(&src, &dest)?;
-        Ok(dest)
-    }
-    pub fn download_tokenizer(&self) -> Result<PathBuf, GptError> {
-        log::info!("Downloading tokenizer...");
-        let api = Api::new()?;
-        let repo = self.tokenizer_repository();
-        let api = api.model(repo.to_string());
-        let tokenizer_path = api.get("tokenizer.json")?;
-        Ok(tokenizer_path)
-    }
-    pub fn download_model(&self) -> Result<PathBuf, GptError> {
-        log::info!("Downloading model weights...");
-        let api = Api::new()?;
-        let repo = hf_hub::Repo::with_revision(
-            self.model_repository().to_string(),
-            hf_hub::RepoType::Model,
-            self.model_revision().to_string(),
-        );
-        let model_path = api.repo(repo).get(
-            self.model_config()
-        )?;
-        Ok(model_path)
-    }
-    pub fn tokenizer_repository(&self) -> &'static str {
+impl ModelGroup {
+    pub fn to_models(self) -> Vec<GeneratorModel> {
         match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM 
-                => "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            GeneratorModel::DeepseekR1Qwen7bQ2KL  
-                | GeneratorModel::DeepseekR1Qwen7bQ4KM  
-                | GeneratorModel::DeepseekR1Qwen7bQ80
-                => "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-            GeneratorModel::DeepseekR1Qwen14bQ2KL
-                | GeneratorModel::DeepseekR1Qwen14bQ4KM
-                | GeneratorModel::DeepseekR1Qwen14bQ80
-                => "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-            GeneratorModel::DeepseekR1Qwen32bQ2KL
-                | GeneratorModel::DeepseekR1Qwen32bQ4KM
-                | GeneratorModel::DeepseekR1Qwen32bQ80
-                => "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-            GeneratorModel::Qwen4bQ80  | GeneratorModel::Qwen4bQ4KXL => "Qwen/Qwen3-4B",
-            GeneratorModel::Qwen8bQ80  | GeneratorModel::Qwen8bQ4KXL  => "Qwen/Qwen3-8B",
-            GeneratorModel::Qwen14bQ80 | GeneratorModel::Qwen14bQ40 => "Qwen/Qwen3-14B",
-            GeneratorModel::Qwen32bQ80 | GeneratorModel::Qwen32bQ40 => "Qwen/Qwen3-32B",
-        }
-    }
-    pub fn model_repository(&self) -> &'static str {
-        match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM 
-                => "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
-            GeneratorModel::DeepseekR1Qwen7bQ2KL
-                | GeneratorModel::DeepseekR1Qwen7bQ4KM 
-                | GeneratorModel::DeepseekR1Qwen7bQ80
-                => "unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF",
-            GeneratorModel::DeepseekR1Qwen14bQ2KL
-                | GeneratorModel::DeepseekR1Qwen14bQ4KM
-                | GeneratorModel::DeepseekR1Qwen14bQ80
-                => "unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF",
-            GeneratorModel::DeepseekR1Qwen32bQ2KL
-                | GeneratorModel::DeepseekR1Qwen32bQ4KM
-                | GeneratorModel::DeepseekR1Qwen32bQ80
-                => "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
-            GeneratorModel::Qwen4bQ80  | GeneratorModel::Qwen4bQ4KXL => "unsloth/Qwen3-4B-GGUF",
-            GeneratorModel::Qwen8bQ80  | GeneratorModel::Qwen8bQ4KXL => "unsloth/Qwen3-8B-GGUF",
-            GeneratorModel::Qwen14bQ80 | GeneratorModel::Qwen14bQ40 => "unsloth/Qwen3-14B-GGUF",
-            GeneratorModel::Qwen32bQ80 | GeneratorModel::Qwen32bQ40=> "unsloth/Qwen3-32B-GGUF",
-        }
-    }
-    pub fn model_config(&self) -> &'static str {
-        match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM => "DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",
-            GeneratorModel::DeepseekR1Qwen7bQ2KL => "DeepSeek-R1-Distill-Qwen-7B-Q2_K_L.gguf",
-            GeneratorModel::DeepseekR1Qwen7bQ4KM => "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
-            GeneratorModel::DeepseekR1Qwen7bQ80 => "DeepSeek-R1-Distill-Qwen-7B-Q8_0.gguf",
-            GeneratorModel::DeepseekR1Qwen14bQ2KL => "DeepSeek-R1-Distill-Qwen-14B-Q2_K_L.gguf",
-            GeneratorModel::DeepseekR1Qwen14bQ4KM => "DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf",
-            GeneratorModel::DeepseekR1Qwen14bQ80 => "DeepSeek-R1-Distill-Qwen-14B-Q8_0.gguf",
-            GeneratorModel::DeepseekR1Qwen32bQ2KL => "DeepSeek-R1-Distill-Qwen-32B-Q2_K_L.gguf",
-            GeneratorModel::DeepseekR1Qwen32bQ4KM => "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
-            GeneratorModel::DeepseekR1Qwen32bQ80 => "DeepSeek-R1-Distill-Qwen-32B-Q8_0.gguf",
-            GeneratorModel::Qwen4bQ80 => "Qwen3-4B-Q8_0.gguf",
-            GeneratorModel::Qwen8bQ80 => "Qwen3-8B-Q8_0.gguf",
-            GeneratorModel::Qwen14bQ80 => "Qwen3-14B-Q8_0.gguf",
-            GeneratorModel::Qwen32bQ80 => "Qwen3-32B-Q8_0.gguf",
-            GeneratorModel::Qwen4bQ4KXL => "Qwen3-4B-Q4_0.gguf",
-            GeneratorModel::Qwen8bQ4KXL => "Qwen3-8B-Q4_0.gguf",
-            GeneratorModel::Qwen14bQ40 => "Qwen3-14B-Q4_0.gguf",
-            GeneratorModel::Qwen32bQ40 => "Qwen3-32B-Q4_0.gguf",
-        }
-    }
-    pub fn model_revision(&self) -> &'static str {
-        "main"
-    }
-    // For writing files to disk
-    pub fn model_name(&self) -> &'static str {
-        match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM  => "deepseekr1-llama8b-q4-km",
-            GeneratorModel::DeepseekR1Qwen7bQ2KL => "deepseekr1-qwen7b-q2-kl",
-            GeneratorModel::DeepseekR1Qwen7bQ4KM => "deepseekr1-qwen7b-q4-km",
-            GeneratorModel::DeepseekR1Qwen7bQ80 => "deepseekr1-qwen7b-q8-0",
-            GeneratorModel::DeepseekR1Qwen14bQ2KL => "deepseekr1-qwen14b-q2-kl",
-            GeneratorModel::DeepseekR1Qwen14bQ4KM => "deepseekr1-qwen14b-q4-km",
-            GeneratorModel::DeepseekR1Qwen14bQ80 => "deepseekr1-qwen14b-q8-0",
-            GeneratorModel::DeepseekR1Qwen32bQ2KL => "deepseekr1-qwen32b-q2-kl",
-            GeneratorModel::DeepseekR1Qwen32bQ4KM => "deepseekr1-qwen32b-q4-km",
-            GeneratorModel::DeepseekR1Qwen32bQ80 => "deepseekr1-qwen32b-q8-0",
-            GeneratorModel::Qwen4bQ80 => "qwen3-4b-q8-0",
-            GeneratorModel::Qwen8bQ80 => "qwen3-8b-q8-0",
-            GeneratorModel::Qwen14bQ80 => "qwen3-14b-q8-0",
-            GeneratorModel::Qwen32bQ80 => "qwen3-32b-q8-0",
-            GeneratorModel::Qwen4bQ4KXL => "qwen3-4b-q4-kxl",
-            GeneratorModel::Qwen8bQ4KXL => "qwen3-8b-q4-kxl",
-            GeneratorModel::Qwen14bQ40 => "qwen3-14b-q4-0",
-            GeneratorModel::Qwen32bQ40 => "qwen3-32b-q4-0",
-        }
-    }
-    pub fn model_file(&self) -> PathBuf {
-        let model_config = PathBuf::from(
-            self.model_config()
-        );
-        let ext = model_config
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("config");
-        PathBuf::from(format!("{}.{}", self.model_name(), ext))
-    }
-
-    pub fn tokenizer_file(&self) -> PathBuf {
-        PathBuf::from(format!("{}.tokenizer.json", self.model_name()))
-    }
-
-    pub fn get_eos_token(
-        &self, 
-        tos: &TokenOutputStream,
-    ) -> Result<u32, GptError> {
-
-        // Get the  end of sentence token
-        let eos_token = match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM 
-                | GeneratorModel::DeepseekR1Qwen7bQ2KL 
-                | GeneratorModel::DeepseekR1Qwen7bQ4KM 
-                | GeneratorModel::DeepseekR1Qwen7bQ80
-                | GeneratorModel::DeepseekR1Qwen14bQ2KL
-                | GeneratorModel::DeepseekR1Qwen14bQ4KM
-                | GeneratorModel::DeepseekR1Qwen14bQ80
-                | GeneratorModel::DeepseekR1Qwen32bQ2KL
-                | GeneratorModel::DeepseekR1Qwen32bQ4KM
-                | GeneratorModel::DeepseekR1Qwen32bQ80  => "<｜end▁of▁sentence｜>",
-            GeneratorModel::Qwen4bQ80 
-                | GeneratorModel::Qwen8bQ80
-                | GeneratorModel::Qwen14bQ80 
-                | GeneratorModel::Qwen32bQ80
-                | GeneratorModel::Qwen4bQ4KXL 
-                | GeneratorModel::Qwen8bQ4KXL 
-                | GeneratorModel::Qwen14bQ40 
-                | GeneratorModel::Qwen32bQ40 => "<|im_end|>"
-        };
-        let eos = *tos.tokenizer()
-            .get_vocab(true)
-            .get(eos_token)
-            .ok_or(GptError::EosTokenNotInVocabulary(eos_token.to_string()))?;
-
-        Ok(eos)
-    }
-
-    pub fn is_deepseek_qwen(&self) -> bool {
-        match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM
-            | GeneratorModel::Qwen4bQ80 
-            | GeneratorModel::Qwen8bQ80
-            | GeneratorModel::Qwen14bQ80 
-            | GeneratorModel::Qwen32bQ80 
-            | GeneratorModel::Qwen4bQ4KXL 
-            | GeneratorModel::Qwen8bQ4KXL 
-            | GeneratorModel::Qwen14bQ40 
-            | GeneratorModel::Qwen32bQ40 => false,
-            GeneratorModel::DeepseekR1Qwen7bQ2KL 
-            | GeneratorModel::DeepseekR1Qwen7bQ4KM 
-            | GeneratorModel::DeepseekR1Qwen7bQ80
-            | GeneratorModel::DeepseekR1Qwen14bQ2KL
-            | GeneratorModel::DeepseekR1Qwen14bQ4KM
-            | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen32bQ2KL
-            | GeneratorModel::DeepseekR1Qwen32bQ4KM
-            | GeneratorModel::DeepseekR1Qwen32bQ80 => true,
-        }
-    }
-    pub fn is_deepseek_llama(&self) -> bool {
-        match self {
-            GeneratorModel::DeepseekR1Qwen7bQ2KL 
-            | GeneratorModel::DeepseekR1Qwen7bQ4KM 
-            | GeneratorModel::DeepseekR1Qwen7bQ80
-            | GeneratorModel::DeepseekR1Qwen14bQ2KL
-            | GeneratorModel::DeepseekR1Qwen14bQ4KM
-            | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen32bQ2KL
-            | GeneratorModel::DeepseekR1Qwen32bQ4KM
-            | GeneratorModel::DeepseekR1Qwen32bQ80
-            | GeneratorModel::Qwen4bQ80 
-            | GeneratorModel::Qwen8bQ80
-            | GeneratorModel::Qwen14bQ80 
-            | GeneratorModel::Qwen32bQ80
-            | GeneratorModel::Qwen4bQ4KXL 
-            | GeneratorModel::Qwen8bQ4KXL 
-            | GeneratorModel::Qwen14bQ40 
-            | GeneratorModel::Qwen32bQ40 => false,
-            GeneratorModel::DeepseekR1Llama8bQ4KM => true,
-        }
-    }
-    pub fn is_qwen(&self) -> bool {
-        match self {
-            GeneratorModel::DeepseekR1Llama8bQ4KM
-            | GeneratorModel::DeepseekR1Qwen7bQ2KL 
-            | GeneratorModel::DeepseekR1Qwen7bQ4KM 
-            | GeneratorModel::DeepseekR1Qwen7bQ80
-            | GeneratorModel::DeepseekR1Qwen14bQ2KL
-            | GeneratorModel::DeepseekR1Qwen14bQ4KM
-            | GeneratorModel::DeepseekR1Qwen14bQ80
-            | GeneratorModel::DeepseekR1Qwen32bQ2KL
-            | GeneratorModel::DeepseekR1Qwen32bQ4KM
-            | GeneratorModel::DeepseekR1Qwen32bQ80 => false,
-            GeneratorModel::Qwen4bQ80 
-            | GeneratorModel::Qwen8bQ80
-            | GeneratorModel::Qwen14bQ80 
-            | GeneratorModel::Qwen32bQ80
-            | GeneratorModel::Qwen4bQ4KXL 
-            | GeneratorModel::Qwen8bQ4KXL 
-            | GeneratorModel::Qwen14bQ40 
-            | GeneratorModel::Qwen32bQ40 => true,
-        }
-    }
-
-    pub fn format_prompt(&self, prompt: &str, disable_thinking: bool) -> String {
-        if self.is_deepseek_qwen() {
-            if disable_thinking {
-                format!("<｜User｜>{prompt}<｜Assistant｜>\n<think>\n\n</think>\n\n")
-            } else {
-                format!("<｜User｜>{prompt}<｜Assistant｜>")
-            }
-        } else if self.is_deepseek_llama() {
-            format!("<｜user｜>{prompt}<｜assistant｜>")  // llama distillation only works with non-capitalized tags?
-        } else if self.is_qwen() {
-            if disable_thinking {
-                format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n") 
-            } else {
-                format!("<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n") 
-            }
-        } else {
-            prompt.to_string()
+            ModelGroup::Qwen => GeneratorModel::qwen(),
+            ModelGroup::NativeQwen => GeneratorModel::native_qwen(),
+            ModelGroup::Deepseek => GeneratorModel::deepseek(),
+            ModelGroup::DeepseekQwen => GeneratorModel::deepseek_qwen(),
+            ModelGroup::DeepseekLlama => GeneratorModel::deepseek_llama(),
         }
     }
 }
-
 
 fn format_size(size_in_bytes: usize) -> String {
     if size_in_bytes < 1_000 {
@@ -823,7 +537,7 @@ pub struct TextGeneratorArgs {
     pub temperature: f64,
 
     /// Nucleus sampling probability cutoff.
-    #[arg(long, short='p')]
+    #[arg(long, short='s')]
     pub top_p: Option<f64>,
 
     /// Only sample among the top K samples.
@@ -858,91 +572,6 @@ pub struct TextGeneratorArgs {
     #[arg(long)]
     pub log_info: bool,
 
-}
-
-
-/// This is a wrapper around a tokenizer to ensure that tokens can be returned to the user in a
-/// streaming way rather than having to wait for the full decoding.
-/// 
-/// https://github.com/huggingface/candle/blob/main/candle-examples/src/token_output_stream.rs
-pub struct TokenOutputStream {
-    tokenizer: tokenizers::Tokenizer,
-    tokens: Vec<u32>,
-    prev_index: usize,
-    current_index: usize,
-}
-
-impl TokenOutputStream {
-    pub fn new(tokenizer: tokenizers::Tokenizer) -> Self {
-        Self {
-            tokenizer,
-            tokens: Vec::new(),
-            prev_index: 0,
-            current_index: 0,
-        }
-    }
-
-    pub fn into_inner(self) -> tokenizers::Tokenizer {
-        self.tokenizer
-    }
-
-    fn decode(&self, tokens: &[u32]) -> Result<String, GptError> {
-        Ok(self.tokenizer.decode(tokens, true)?)
-    }
-
-    // https://github.com/huggingface/text-generation-inference/blob/5ba53d44a18983a4de32d122f4cb46f4a17d9ef6/server/text_generation_server/models/model.py#L68
-    pub fn next_token(&mut self, token: u32) -> Result<Option<String>, GptError> {
-        let prev_text = if self.tokens.is_empty() {
-            String::new()
-        } else {
-            let tokens = &self.tokens[self.prev_index..self.current_index];
-            self.decode(tokens)?
-        };
-        self.tokens.push(token);
-        let text = self.decode(&self.tokens[self.prev_index..])?;
-        if text.len() > prev_text.len() && text.chars().last().unwrap().is_alphanumeric() {
-            let text = text.split_at(prev_text.len());
-            self.prev_index = self.current_index;
-            self.current_index = self.tokens.len();
-            Ok(Some(text.1.to_string()))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn decode_rest(&self) -> Result<Option<String>, GptError> {
-        let prev_text = if self.tokens.is_empty() {
-            String::new()
-        } else {
-            let tokens = &self.tokens[self.prev_index..self.current_index];
-            self.decode(tokens)?
-        };
-        let text = self.decode(&self.tokens[self.prev_index..])?;
-        if text.len() > prev_text.len() {
-            let text = text.split_at(prev_text.len());
-            Ok(Some(text.1.to_string()))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn decode_all(&self) -> Result<String, GptError> {
-        self.decode(&self.tokens)
-    }
-
-    pub fn get_token(&self, token_s: &str) -> Option<u32> {
-        self.tokenizer.get_vocab(true).get(token_s).copied()
-    }
-
-    pub fn tokenizer(&self) -> &tokenizers::Tokenizer {
-        &self.tokenizer
-    }
-
-    pub fn clear(&mut self) {
-        self.tokens.clear();
-        self.prev_index = 0;
-        self.current_index = 0;
-    }
 }
 
 #[derive(Debug, Clone)]

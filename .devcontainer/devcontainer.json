@@ -1,0 +1,36 @@
+{
+    "name": "META-GPT CUDA Development",
+    "build": {
+      "context": "..",
+      "dockerfile": "../docker/Dockerfile.dev",
+      "args": {
+        "CUDA_COMPUTE_CAP": "86"
+      }
+    },
+    "runArgs": [
+      "--gpus", "all",
+      "--network", "host"
+    ],
+    "mounts": [
+      "source=/data/models,target=/data,type=bind"
+    ],
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+    "remoteUser": "root",        
+    "postCreateCommand": "if [ ! -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so ] && [ -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 ]; then ln -s /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so; fi",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "rust-lang.rust-analyzer"
+        ],
+        "settings": {
+          "rust-analyzer.cargo.features": ["local"],
+          "rust-analyzer.check.command": "check",
+          "rust-analyzer.check.extraArgs": [
+            "--features",
+            "local"
+          ]
+        }
+      }
+    }
+}

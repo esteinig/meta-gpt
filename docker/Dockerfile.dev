@@ -1,0 +1,34 @@
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu20.04
+
+ARG CUDA_COMPUTE_CAP=86
+
+ENV CUDA_COMPUTE_CAP=${CUDA_COMPUTE_CAP}
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      musl-tools \
+      gcc-multilib \
+      g++-multilib \
+      cmake \
+      pkg-config \
+      libfontconfig1-dev \
+      curl \
+      build-essential \
+      git \
+      && rm -rf /var/lib/apt/lists/*
+
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable && \
+    rustup default stable && \
+    rustup component add rustfmt clippy && \
+    rustup target add x86_64-unknown-linux-musl
+
+ENTRYPOINT ["/bin/bash", "-c", "\
+if [ ! -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so ] && [ -e /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 ]; then \
+    ln -s /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so; \
+fi; \
+exec \"$@\"", "--"]

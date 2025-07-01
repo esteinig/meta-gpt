@@ -10,7 +10,6 @@ Custom error definitions
 pub enum GptError {
     #[error(transparent)]
     SerdeJsonError(#[from] serde_json::Error),
-    #[cfg(feature = "local")]
     #[error(transparent)]
     HuggingfaceApiError(#[from] hf_hub::api::sync::ApiError),
     #[cfg(feature = "local")]

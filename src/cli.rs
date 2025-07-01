@@ -4,6 +4,9 @@ use meta_gpt::gpt::DiagnosticAgent;
 use meta_gpt::terminal::{App, Commands};
 use meta_gpt::utils::{get_config, init_logger};
 use cerebro_client::client::CerebroClient;
+use meta_gpt::gpt::DiagnosticResult;
+use nvml_wrapper::Nvml;
+use meta_gpt::error::GptError;
 
 #[cfg(feature = "local")]
 use meta_gpt::text::{TextGenerator, GeneratorConfig};
@@ -19,7 +22,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         Commands::DiagnoseApi( args ) => {
             log::warn!("Not implemented yet")
         }
-        Commands::PrefetchTiered( args ) => {
+        Commands::Prefetch( args ) => {
            
             let api_client = CerebroClient::new(
                 &cli.url,
@@ -101,7 +104,9 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             )?;
 
             
-            let post_filter = if args.post_filter.unwrap_or(false) { 
+            let post_filter = if args.post_filter.unwrap_or(false) {
+                use cerebro_model::api::cerebro::schema::PostFilterConfig;
+ 
                 let collapse_variants = match args.collapse_variants {
                     Some(value) => value,
                     None => false,
@@ -131,6 +136,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                     // If we use prefetch data we anticipate this here. This circumvents loading the model to GPU for
                     // inference when we return a non-infectious result anyway.
                     if data.primary.is_empty() && data.secondary.is_empty() && data.target.is_empty() {
+
                         Some(DiagnosticResult::non_infectious())
                     } else {
                         None
@@ -179,6 +185,25 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             )?;
 
             generator.run(&args.prompt, false)?;
+
+        },
+        Commands::Download( args ) => {
+            
+            let mut selected = args.models.clone();
+
+            if let Some(group) = args.group {
+                selected.extend(group.to_models());
+                selected.dedup(); // avoid duplicates
+            }
+
+            if selected.is_empty() {
+                log::error!("No models or model groups were selected!")
+            }
+
+            for model in selected {
+                model.save_model(&args.outdir)?;
+                model.save_tokenizer(&args.outdir)?;
+            }
 
         }
     }

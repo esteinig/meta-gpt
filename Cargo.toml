@@ -65,11 +65,13 @@ tokio = { version = "1.44.1", features = ["process", "rt-multi-thread"] }
 uuid = { version = "1.2.1", features = ["v4", "fast-rng", "macro-diagnostics", "serde"] }
 clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wrap_help"] }
 
+tokenizers = { version = "0.21.1" }
+hf-hub = { version = "0.4.2" }
+
 candle-core = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
 candle-transformers = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
-tokenizers = { version = "0.21.1", optional = true }
-hf-hub = { version = "0.4.2", optional = true }
+
 
 [features]
 default = []
-local = ["candle-core", "candle-transformers", "tokenizers", "hf-hub"]
+local = ["candle-core", "candle-transformers"]
