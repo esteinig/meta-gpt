@@ -8,7 +8,7 @@ use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
 use cerebro_pipeline::taxa::taxon::{collapse_taxa, LineageOperations, Taxon};
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{BufWriter, Write};
@@ -933,6 +933,28 @@ impl PrefetchData {
             config: config.clone()
         }
     }
+    /// Remove from `secondary` any Taxon whose `lineage` also appears in `primary`,
+    /// then remove from `target` any Taxon whose `lineage` also appears in the (now-pruned) `secondary`.
+    pub fn prune(&mut self) {
+
+        log::info!("Pruning tiered filter categories...");
+        
+        // 1) collect all lineages present in primary
+        let primary_lineages: HashSet<_> =
+            self.primary.iter().map(|t| t.lineage.clone()).collect();
+
+        // 2) drop from secondary anything already in primary
+        self.secondary
+            .retain(|t| !primary_lineages.contains(&t.lineage));
+
+        // 3) now collect lineages in the (pruned) secondary
+        let secondary_lineages: HashSet<_> =
+            self.secondary.iter().map(|t| t.lineage.clone()).collect();
+
+        // 4) drop from target anything already in secondary
+        self.target
+            .retain(|t| !secondary_lineages.contains(&t.lineage));
+    }
     pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
         let data = serde_json::to_string_pretty(self).map_err(|err| GptError::SerdeJsonError(err))?;
         let mut writer = BufWriter::new(File::create(path)?);
@@ -943,6 +965,92 @@ impl PrefetchData {
         let data = std::fs::read_to_string(path)?;
         let result = serde_json::from_str::<PrefetchData>(&data)?;
         Ok(result)
+    }
+}
+
+impl PrefetchData {
+    /// Draw a grouped horizontal bar chart of “# taxa per domain” in each tier,
+    /// and save it as an SVG to `output_path`.
+    pub fn plot_domain_counts_svg(&self, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+        // 1) Define domains and tiers
+        let domains    = ["Bacteria", "Eukaryota", "Viruses"];
+        let tier_names = ["primary", "secondary", "target"];
+        let tier_data  = [&self.primary, &self.secondary, &self.target];
+
+        // 2) Count per (tier, domain)
+        let mut counts = Vec::with_capacity(tier_data.len());
+        for taxa in &tier_data {
+            let mut c = [0u32; 3];
+            for (i, &domain) in domains.iter().enumerate() {
+                c[i] = taxa
+                    .iter()
+                    .filter(|t| t.lineage.get_domain().as_deref() == Some(domain))
+                    .count() as u32;
+            }
+            counts.push(c);
+        }
+        let max_count = counts
+            .iter()
+            .flat_map(|arr| arr.iter())
+            .cloned()
+            .max()
+            .unwrap_or(0);
+
+        // 3) Create SVG backend
+        let root = SVGBackend::new(output_path, (800, 400)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        // 4) Build cartesian axes: X from 0..max_count, Y from 0.0..3.0
+        let y_max = tier_data.len() as f64;
+        let mut chart = ChartBuilder::on(&root)
+            .margin(10)
+            .caption("Taxa per Domain by Filter Tier", ("sans-serif", 20))
+            .x_label_area_size(40)
+            .y_label_area_size(80)
+            .build_cartesian_2d(0u32..(max_count + 1), 0f64..y_max)?;
+
+        // 5) Configure mesh, custom y‐axis labels
+        chart
+            .configure_mesh()
+            .disable_mesh()
+            .x_desc("Number of Taxa")
+            .y_desc("Filter Tier")
+            .y_labels(tier_data.len())
+            .y_label_formatter(&|v| {
+                let idx = *v as usize;
+                if idx < tier_names.len() {
+                    tier_names[idx].to_string()
+                } else {
+                    "".to_string()
+                }
+            })
+            .draw()?;
+
+        // 6) Bar geometry: three bars per tier
+        let bar_height    = 0.2;
+        let spacing       = 0.05;
+        let group_height  = bar_height * domains.len() as f64 + spacing * (domains.len() - 1) as f64;
+        let half_group    = group_height / 2.0;
+        let colors        = [&BLUE, &GREEN, &RED];
+
+        for (tier_idx, domain_counts) in counts.iter().enumerate() {
+            let tier_y = tier_idx as f64;
+            for (dom_idx, &val) in domain_counts.iter().enumerate() {
+                // offset each bar within the group so they don't overlap
+                let offset = (dom_idx as f64) * (bar_height + spacing) - half_group + (bar_height / 2.0);
+                let y0 = tier_y + offset;
+                let y1 = y0 + bar_height;
+
+                chart.draw_series(std::iter::once(
+                    Rectangle::new(
+                        [(0u32, y0), (val, y1)],
+                        colors[dom_idx].filled(),
+                    ),
+                ))?;
+            }
+        }
+
+        Ok(())
     }
 }
 

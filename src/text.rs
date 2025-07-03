@@ -12,7 +12,6 @@ use candle_transformers::models::quantized_llama as llama;
 use candle_transformers::models::quantized_qwen2 as qwen2;
 use candle_transformers::models::quantized_qwen3 as qwen3;
 
-
 use candle_transformers::utils::apply_repeat_penalty;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 
