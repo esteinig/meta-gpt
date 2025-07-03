@@ -980,7 +980,7 @@ impl PrefetchData {
 impl PrefetchData {
     /// Draw a grouped horizontal bar chart of “# taxa per domain” in each tier,
     /// and save it as an SVG to `output_path`.
-    pub fn plot_domain_counts_svg(&self, output_path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn plot_domain_counts_svg(&self, output_path: &Path) -> Result<(), GptError> {
         // 1) Define domains and tiers
         let domains    = ["Bacteria", "Eukaryota", "Viruses"];
         let tier_names = ["primary", "secondary", "target"];
@@ -1088,9 +1088,11 @@ impl DiagnosticAgent {
         log::info!("Fetching primary threshold data for sample '{}'", config.sample);
 
         if let Some(client) = &self.client {
+            
             let primary_filter_config = &TaxonFilterConfig::gp_above_threshold(
                 config.ignore_taxstr.clone()
             );
+
             let (primary, _) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 primary_filter_config, 
@@ -1103,6 +1105,7 @@ impl DiagnosticAgent {
             let secondary_filter_config = &TaxonFilterConfig::gp_below_threshold(
                 config.ignore_taxstr.clone()
             );
+
             let (secondary, _) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 secondary_filter_config, 
