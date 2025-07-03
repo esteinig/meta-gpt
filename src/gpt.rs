@@ -58,7 +58,7 @@ impl Question {
     ///
     /// [Instructions]
     /// ...
-    pub fn to_standard_prompt(&self) -> String {
+    pub fn to_standard_prompt(&self, system: &Option<AgentPrimer>) -> String {
         let (tasks, data, context, instructions) = match self {
             Question::Simple(p) => (p.clone(), None, None, None),
             Question::Detailed { tasks, data, context, instructions } => {
@@ -67,6 +67,12 @@ impl Question {
         };
 
         let mut out = String::new();
+        if let Some(primer) = system {
+            out.push_str("[System]\n");
+            out.push_str(&primer.text());
+            out.push_str("\n\n");
+        }
+
         if let Some(context) = context {
             out.push_str("[Context]\n");
             out.push_str(&context);
@@ -171,6 +177,19 @@ impl ThresholdCandidates {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
+pub enum AgentPrimer {
+    Default,
+    None
+}
+impl AgentPrimer {
+    pub fn text(&self) -> String {
+        match self {
+            AgentPrimer::Default => "You are a diagnostic assistant trained to support the interpretation of metagenomic sequencing results for infectious disease diagnosis. Use your expertise in microbiology, pathology, metagenomics, clinical diagnostics, and infectious diseases to help determine whether a case is infectious or non-infectious.".to_string(),
+            AgentPrimer::None => String::new()
+        }
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
 pub enum AssayContext {
@@ -1263,6 +1282,7 @@ impl DiagnosticAgent {
         sample_context: SampleContext, 
         clinical_notes: Option<String>, 
         assay_context: Option<AssayContext>, 
+        agent_primer: Option<AgentPrimer>,
         config: &MetaGpConfig,
         prefetch: Option<PrefetchData>,
         post_filter: Option<PostFilterConfig>,
@@ -1347,7 +1367,7 @@ impl DiagnosticAgent {
                             .with_data(&candidates)?
                             .question
                             .unwrap()
-                            .to_standard_prompt();
+                            .to_standard_prompt(&agent_primer);
                         
                         log::info!("\n\n{prompt}");
 
@@ -1417,7 +1437,7 @@ impl DiagnosticAgent {
                             .with_data(&candidates)?
                             .question
                             .unwrap()
-                            .to_standard_prompt();
+                            .to_standard_prompt(&agent_primer);
                         
                         log::info!("\n\n{prompt}");
 
@@ -1488,7 +1508,7 @@ impl DiagnosticAgent {
                             .with_data(&candidates)?
                             .question
                             .unwrap()
-                            .to_standard_prompt();
+                            .to_standard_prompt(&agent_primer);
                         
                         log::info!("\n\n{prompt}");
 
@@ -1597,7 +1617,7 @@ impl DiagnosticAgent {
                                         .with_data(&candidates)?
                                         .question
                                         .unwrap()
-                                        .to_standard_prompt();
+                                        .to_standard_prompt(&agent_primer);
                                     
                                     log::info!("\n\n{prompt}");
             
@@ -1684,7 +1704,7 @@ impl DiagnosticAgent {
                         .with_data(&candidates)?
                         .question
                         .unwrap()
-                        .to_standard_prompt();
+                        .to_standard_prompt(&agent_primer);
                 
                     log::info!("\n\n{prompt}");
 

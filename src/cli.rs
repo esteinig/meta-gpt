@@ -153,6 +153,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                         args.sample_context.clone(),
                         args.clinical_notes.clone(),
                         args.assay_context.clone(),
+                        args.agent_primer.clone(),
                         &gp_config, 
                         prefetch,
                         post_filter,
