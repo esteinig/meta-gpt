@@ -917,6 +917,9 @@ pub struct PrefetchData {
     pub primary: Vec<Taxon>,
     pub secondary: Vec<Taxon>,
     pub target: Vec<Taxon>,
+    pub primary_filter: TaxonFilterConfig,
+    pub secondary_filter: TaxonFilterConfig,
+    pub target_filter: TaxonFilterConfig,
     pub config: MetaGpConfig
 }
 impl PrefetchData {
@@ -924,12 +927,18 @@ impl PrefetchData {
         primary: Vec<Taxon>,
         secondary: Vec<Taxon>,
         target: Vec<Taxon>,
+        primary_filter: &TaxonFilterConfig,
+        secondary_filter: &TaxonFilterConfig,
+        target_filter: &TaxonFilterConfig,
         config: &MetaGpConfig
     ) -> Self {
         Self {
             primary,
             secondary,
             target,
+            primary_filter: primary_filter.clone(),
+            secondary_filter: secondary_filter.clone(),
+            target_filter: target_filter.clone(),
             config: config.clone()
         }
     }
@@ -1079,38 +1088,52 @@ impl DiagnosticAgent {
         log::info!("Fetching primary threshold data for sample '{}'", config.sample);
 
         if let Some(client) = &self.client {
+            let primary_filter_config = &TaxonFilterConfig::gp_above_threshold(
+                config.ignore_taxstr.clone()
+            );
             let (primary, _) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
-                &TaxonFilterConfig::gp_above_threshold(
-                    config.ignore_taxstr.clone()
-                ), 
+                primary_filter_config, 
                 &config.contamination,
                 config.prevalence_outliers.primary
             )?;
     
             log::info!("Fetching secondary threshold data for sample '{}'", config.sample);
     
+            let secondary_filter_config = &TaxonFilterConfig::gp_below_threshold(
+                config.ignore_taxstr.clone()
+            );
             let (secondary, _) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
-                &TaxonFilterConfig::gp_below_threshold(
-                    config.ignore_taxstr.clone()
-                ), 
+                secondary_filter_config, 
                 &config.contamination,
                 config.prevalence_outliers.secondary
             )?;
     
             log::info!("Fetching target threshold data for sample '{}'", config.sample);
-    
+            let target_filter_config = &TaxonFilterConfig::gp_target_threshold(
+                config.ignore_taxstr.clone()
+            );
             let (target, _) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
-                &TaxonFilterConfig::gp_target_threshold(
-                    config.ignore_taxstr.clone()
-                ), 
+                target_filter_config, 
                 &config.contamination,
                 config.prevalence_outliers.target
             )?;
 
-            PrefetchData::new(primary, secondary, target, config).to_json(output)
+            let mut prefetch_data = PrefetchData::new(
+                primary, 
+                secondary, 
+                target, 
+                primary_filter_config,
+                secondary_filter_config,
+                target_filter_config,
+                config
+            );
+
+            prefetch_data.prune();
+            prefetch_data.to_json(output)
+
         } else {
             Err(GptError::CerebroClientNotProvided)
         }
