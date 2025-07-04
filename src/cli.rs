@@ -6,7 +6,6 @@ use meta_gpt::utils::{get_config, init_logger};
 use cerebro_client::client::CerebroClient;
 use meta_gpt::gpt::DiagnosticResult;
 use nvml_wrapper::Nvml;
-use meta_gpt::error::GptError;
 
 #[cfg(feature = "local")]
 use meta_gpt::text::{TextGenerator, GeneratorConfig};
@@ -19,7 +18,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
     let cli = App::parse();
 
     match &cli.command {
-        Commands::DiagnoseApi( args ) => {
+        Commands::DiagnoseApi( _ ) => {
             log::warn!("Not implemented yet")
         }
         Commands::Prefetch( args ) => {

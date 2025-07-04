@@ -15,9 +15,8 @@ use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
-use async_openai::{config::OpenAIConfig, types::*};
 use colored::Colorize;
-use anthropic_api::{messages::*, Credentials};
+use anthropic_api::Credentials;
 
 
 use petgraph::graph::Graph;
@@ -28,7 +27,6 @@ use petgraph::visit::IntoNodeReferences;
 use plotters::prelude::*;
 
 use crate::error::GptError;
-use crate::model::GeneratorModel;
 
 
 #[cfg(feature = "local")]
@@ -869,8 +867,7 @@ impl DecisionTree {
                         1.  Output the most likely pathogen inside <pathogen></pathogen> (XML).
                         1a. You must select only one of the species in [Data] - the most likely pathogen - and place it into <pathogen></pathogen> tags (XML)
                         1b. You are not allowed to put a value other than the pathogen species inside <pathogen></pathogen> tags (XML).
-                        1c. You must place the full genus and species name from [Data] inside <pathogen></pathogen> tags (XML).
-                        1d. You are not allowed to explain your selection.
+                        1c. You must place the exact genus and species name from [Data] inside <pathogen></pathogen> tags (XML).
 
                         Example: <pathogen>Rodorendens figura</pathogen>
 
@@ -1355,7 +1352,7 @@ impl DiagnosticAgent {
                     log::info!("Primary taxa post filter: {}", primary_taxa.len());
                     
 
-                    let (result, confidence, prompt, thoughts, answer) = if !primary_taxa.is_empty() {
+                    let (result, _, prompt, thoughts, answer) = if !primary_taxa.is_empty() {
 
                         let candidates = ThresholdCandidates::from_primary_threshold(
                             primary_taxa.clone()
@@ -1425,7 +1422,7 @@ impl DiagnosticAgent {
                         secondary_taxa
                     };
 
-                    let (result, confidence, prompt, thoughts, answer) = if !secondary_taxa.is_empty() {
+                    let (result, _, prompt, thoughts, answer) = if !secondary_taxa.is_empty() {
 
                         let candidates = ThresholdCandidates::from_secondary_threshold(
                             secondary_taxa.clone()
@@ -1496,7 +1493,7 @@ impl DiagnosticAgent {
                         target_taxa
                     };
 
-                    let (result, confidence, prompt, thoughts, answer) = if !target_taxa.is_empty() {
+                    let (result, _, prompt, thoughts, answer) = if !target_taxa.is_empty() {
 
                         let candidates = ThresholdCandidates::from_target_threshold(
                             target_taxa.clone()
