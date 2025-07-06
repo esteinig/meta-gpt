@@ -1,0 +1,7 @@
+[alias]
+update-deps = """
+update \
+  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-client@0.11.0 \
+  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-model@0.11.0 \
+  -p git+https://github.com/esteinig/cerebro?branch=main#cerebro-pipeline@0.11.0
+"""

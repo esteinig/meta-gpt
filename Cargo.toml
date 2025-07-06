@@ -2,15 +2,15 @@
 name = "meta-gpt"
 version = "0.11.0"
 authors = ["esteinig <eike.steinig@unimelb.edu.au>"]
-description = "Cerebro: generative practioner for metagenomic diagnostics"
+description = "Metagenomic diagnostic agents using generative pretrained transformers"
 documentation = "https://github.com/esteinig/cerebro"
 homepage = "https://github.com/esteinig/cerebro"
 repository = "https://github.com/esteinig/cerebro"
 readme = "README.md"
-keywords = ["meta-gp", "cerebro", "clinical", "pathogen", "metagenomics"]
+keywords = ["meta-gpt", "cerebro", "llm", "metagenomics", "diagnostics"]
 categories = ["science"]
 license = "GPL-2"
-edition = "2021"
+edition = "2024"
 include = [
     "**/*.rs",
     "src/data/*",
@@ -26,8 +26,6 @@ name = "meta_gpt"
 
 [dependencies]
 
-# Model library dependency to access shared module structs and definitions
-# to use in endpoints and client responses
 cerebro-model = { git = "https://github.com/esteinig/cerebro", package = "cerebro-model", branch = "main" }
 cerebro-client = { git = "https://github.com/esteinig/cerebro", package = "cerebro-client", branch = "main" }
 cerebro-pipeline = { git = "https://github.com/esteinig/cerebro", package = "cerebro-pipeline", branch = "main" }
@@ -70,7 +68,6 @@ hf-hub = { version = "0.4.2" }
 
 candle-core = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
 candle-transformers = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
-
 
 [features]
 default = []
