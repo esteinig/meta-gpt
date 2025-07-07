@@ -204,7 +204,8 @@ impl AssayContext {
                 read alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). 
                 
                 Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names are taxonomic species names (genus name and species name). If you do not know a species, assume that the provided species name is correct - 
-                do not interpret unknown species names as another species you know. You must make your considerations and determinations based on the species, not the genus.
+                do not interpret unknown species names as another species you know. You must make your considerations and determinations based on the species, not the genus. For viral species, traditional abbreviations and alternative names may be provided, which you can 
+                assume are correct alternatives to the output species name.
             "),
             AssayContext::None => String::from("No assay context provided.")
         }
@@ -225,7 +226,7 @@ impl SampleContext {
             SampleContext::Eye => String::from("Vitreous fluid (VF)"),
             SampleContext::None => String::from("No sample context provided.")
         };
-        format!("\n[Sample]\n{}", sample_type)
+        format!("\n[Sample]\n{}\n", sample_type)
     }
 }
 
@@ -242,7 +243,7 @@ impl ClinicalContext {
             ClinicalContext::Custom(str)=> str.to_string(),
             ClinicalContext::None => String::from("No clinical context provided.")
         };
-        format!("\n[Clinical]\n{}", clinical)
+        format!("\n[Clinical]\n{}\n", clinical)
     }
 }
 
