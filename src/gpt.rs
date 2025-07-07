@@ -203,10 +203,10 @@ impl AssayContext {
                 target filter section containing high priority pathogens of interest (very sensitive but not specific for pathogen detection, very low to low abundance but may still be signficant). Our pipeline uses multiple profiling methods for pathogen detection - 
                 read alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). 
                 
-                Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names are taxonomic species name (genus name and species name). If you do not know a species, assume that the provided species name is correct - 
-                do not interpret unknown species names as another species you know. You must make your considerations and determinations based on the species not the genus.
+                Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names are taxonomic species names (genus name and species name). If you do not know a species, assume that the provided species name is correct - 
+                do not interpret unknown species names as another species you know. You must make your considerations and determinations based on the species, not the genus.
             "),
-            AssayContext::None => String::new()
+            AssayContext::None => String::from("No assay context provided.")
         }
     } 
 }
@@ -221,14 +221,28 @@ pub enum SampleContext {
 impl SampleContext {
     pub fn text(&self) -> String {
         let sample_type = match self {
-            SampleContext::Csf => String::from("Cerebrospinal fluid (CSF) sample."),
-            SampleContext::Eye => String::from("Vitreous fluid sample."),
-            SampleContext::None => String::new()
+            SampleContext::Csf => String::from("Cerebrospinal fluid (CSF)"),
+            SampleContext::Eye => String::from("Vitreous fluid (VF)"),
+            SampleContext::None => String::from("No sample context provided.")
         };
-        format!("Sample type: {}", sample_type)
+        format!("[Sample]\n{}", sample_type)
     }
-    pub fn with_clinical_notes(&self, notes: &str) -> String {
-        format!("{}\nClinical notes: {}", self.text(), notes)
+}
+
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum ClinicalContext {
+    Custom(String),
+    None
+}
+
+impl ClinicalContext {
+    pub fn text(&self) -> String {
+        let clinical = match self {
+            ClinicalContext::Custom(str)=> str.to_string(),
+            ClinicalContext::None => String::from("No clinical context provided.")
+        };
+        format!("[Clinical]\n{}", clinical)
     }
 }
 
@@ -750,6 +764,58 @@ impl TreeNodeReader for TreeNodes {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
+pub enum NodeTask {
+    DiagnoseDefault,
+    DiagnoseSimple,
+    DiagnoseInfectious,
+}
+impl Into<String> for NodeTask {
+    fn into(self) -> String {
+        match self {
+            NodeTask::DiagnoseDefault => dedent(r"  
+                1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                2. Consider the potential for background contamination from the environment, reagents and sample site. Consider making an infectious diagnosis if the species is a common human pathogen for the provided sample type [Sample] and clinical information [Clinical].
+                3. If a virus is detected, strongly consider an infectious diagnosis. 
+            "),
+            NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis".to_string(),
+            NodeTask::DiagnoseInfectious => dedent(r"  
+                You have made an infectious diagnosis for this sample. 
+
+                1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                2. Consider the potential for background contamination from the environment, reagents and sample site. If the species is a human pathogen, consider selecting it as most likely pathogen.
+                3. If a virus is detected, strongly consider selecting it as most likely pathogen.
+            ")
+        }
+    }
+}
+
+
+#[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
+pub enum NodeInstruction {
+    DiagnosisDefault,
+    DiagnoseInfectious,
+}
+
+impl Into<String> for NodeInstruction {
+    fn into(self) -> String {
+        match self {
+            NodeInstruction::DiagnosisDefault => dedent(r"
+                1.  Output your determination inside <result></result> tags (XML).
+                1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
+                1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
+            "),
+            NodeInstruction::DiagnoseInfectious => dedent(r"  
+                You have made an infectious diagnosis for this sample. 
+
+                1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] and the provided context [Context]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making the determination if the species is a human pathogen.
+                3. If a virus is detected, strongly consider a selection as most likely pathogen.
+            ")
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct DecisionTree {
     pub name: String,
@@ -777,108 +843,42 @@ impl DecisionTree {
             .true_node("diagnose_infectious")
             .false_node("check_below_threshold")
             .with_check(DiagnosticNode::AboveThresholdQuery)
-            .with_tasks(
-                dedent(r"  
-                    1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context. 
-                    3. If a virus is detected, strongly consider an infectious diagnosis. 
-                ")
-            )?
-            .with_instructions(
-                dedent(r"
-                    1.  Output your determination inside <result></result> tags (XML).
-                    1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
-                    1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
-                "))?;
+            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_instructions(NodeInstruction::DiagnosisDefault)?;
 
         let check_below_threshold = TreeNode::default()
             .label("check_below_threshold")
             .next("check_target_threshold")
             .with_check(DiagnosticNode::BelowThresholdQuery)
-            .with_tasks(
-                dedent(r"  
-                    1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                    2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
-                    3. If a virus is detected, strongly consider an infectious diagnosis.
-                ")
-            )?
-            .with_instructions(
-                dedent(r"
-                    1.  Output your determination inside <result></result> tags (XML).
-                    1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
-                    1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
-                ")
-            )?;
+            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_instructions(NodeInstruction::DiagnosisDefault)?;
         
-            let check_target_threshold = TreeNode::default()
-                .label("check_target_threshold")
-                .next("integrate_thresholds")
-                .with_check(DiagnosticNode::TargetThresholdQuery)
-                .with_tasks(
-                    dedent(r"  
-                       1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                       2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
-                       3. If a virus is detected, strongly consider an infectious diagnosis.
-                    ")
-                )?
-                .with_instructions(
-                    dedent(r"
-                        1.  Output your determination inside <result></result> tags (XML).
-                        1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
-                        1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
-                    ")
-                )?;
+        let check_target_threshold = TreeNode::default()
+            .label("check_target_threshold")
+            .next("integrate_thresholds")
+            .with_check(DiagnosticNode::TargetThresholdQuery)
+            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_instructions(NodeInstruction::DiagnosisDefault)?;
 
-            let integrate_thresholds = TreeNode::default()
-                .label("integrate_thresholds")
-                .true_node("diagnose_infectious")
-                .false_node("diagnose_non_infectious")
-                .with_check(DiagnosticNode::IntegrateThresholds)
-                .with_tasks(
-                    dedent(r"  
-                        1. Determine if the metagenomic taxonomic profiling data supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
-                        3. If a virus is detected, strongly consider an infectious diagnosis.
-                    ")
-                )?
-                .with_instructions(
-                    dedent(r"
-                        1.  Output your determination inside <result></result> tags (XML).
-                        1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
-                        1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
-                    ")
-                )?;
-            
-            let diagnose_infectious = TreeNode::default()
-                .label("diagnose_infectious")
-                .final_node(true)
-                .with_check(DiagnosticNode::DiagnoseInfectious)
-                .with_tasks(
-                    dedent(r"  
-                        You have made an infectious diagnosis for this sample. 
-
-                        1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] and the provided context [Context]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                        2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making the determination if the species is a human pathogen.
-                        3. If a virus is detected, strongly consider a selection as most likely pathogen.
-                    ")
-                )?
-                .with_instructions(
-                    dedent(r"
-                        1.  Output the most likely pathogen inside <pathogen></pathogen> (XML).
-                        1a. You must select only one of the species in [Data] - the most likely pathogen - and place it into <pathogen></pathogen> tags (XML)
-                        1b. You are not allowed to put a value other than the pathogen species inside <pathogen></pathogen> tags (XML).
-                        1c. You must place the exact genus and species name from [Data] inside <pathogen></pathogen> tags (XML).
-
-                        Example: <pathogen>Rodorendens figura</pathogen>
-
-                        Your output:
-                    ")
-                )?;
-            
-            let diagnose_non_infectious = TreeNode::default()
-                .label("diagnose_non_infectious")
-                .final_node(true)
-                .with_check(DiagnosticNode::DiagnoseNonInfectious);
+        let integrate_thresholds = TreeNode::default()
+            .label("integrate_thresholds")
+            .true_node("diagnose_infectious")
+            .false_node("diagnose_non_infectious")
+            .with_check(DiagnosticNode::IntegrateThresholds)
+            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_instructions(NodeInstruction::DiagnosisDefault)?;
+        
+        let diagnose_infectious = TreeNode::default()
+            .label("diagnose_infectious")
+            .final_node(true)
+            .with_check(DiagnosticNode::DiagnoseInfectious)
+            .with_tasks(NodeTask::DiagnoseInfectious)?
+            .with_instructions(NodeInstruction::DiagnoseInfectious)?;
+        
+        let diagnose_non_infectious = TreeNode::default()
+            .label("diagnose_non_infectious")
+            .final_node(true)
+            .with_check(DiagnosticNode::DiagnoseNonInfectious);
 
         let nodes = vec![
             check_above_threshold,
@@ -1276,8 +1276,8 @@ impl DiagnosticAgent {
     pub fn run_local(
         &mut self, 
         text_generator: &mut TextGenerator, 
-        sample_context: SampleContext, 
-        clinical_notes: Option<String>, 
+        sample_context: Option<SampleContext>, 
+        clinical_context: Option<ClinicalContext>, 
         assay_context: Option<AssayContext>, 
         agent_primer: Option<AgentPrimer>,
         config: &MetaGpConfig,
@@ -1290,20 +1290,26 @@ impl DiagnosticAgent {
 
         let mut node_label = "check_above_threshold".to_string();
 
-        let sample_context = match clinical_notes {
-            Some(notes) => sample_context.with_clinical_notes(&notes),
-            None => sample_context.text()
-        };
-        
-        let assay_context = match assay_context {
+        let assay_ctx = match assay_context {
             Some(context) => context.text(),
             None => AssayContext::None.text()
         };
 
+        let sample_ctx = match sample_context {
+            Some(context) => context.text(),
+            None => SampleContext::None.text()
+        };
+        
+        let clinical_ctx = match clinical_context {
+            Some(context) => context.text(),
+            None => ClinicalContext::None.text()
+        };
+
         let context = format!(
-            "{}\n{}", 
-            dedent(&assay_context), 
-            dedent(&sample_context)
+            "{}\n{}\n{}\n", 
+            dedent(&assay_ctx), 
+            dedent(&sample_ctx),
+            dedent(&clinical_ctx)
         );
 
         let mut result = DiagnosticResult {

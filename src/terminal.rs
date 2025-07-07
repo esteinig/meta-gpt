@@ -259,17 +259,17 @@ pub struct PrefetchArgs {
     #[clap(long, short = 'o', default_value="diagnostic.log")]
     pub diagnostic_log: PathBuf,
     /// Clinical context model for diagnostic queries
-    #[clap(long, default_value="none")]
-    pub sample_context: SampleContext,
+    #[clap(long)]
+    pub sample_context: Option<SampleContext>,
     /// Clinical context model for diagnostic queries
     #[clap(long, default_value="cerebro-filter")]
     pub assay_context: Option<AssayContext>,
+    /// Clinical notes to be added to clinical context
+    #[clap(long)]
+    pub clinical_context: Option<String>,
     /// System prompt primer for diagnostic agent
     #[clap(long)]
     pub agent_primer: Option<AgentPrimer>,
-    /// Clinical notes to be added to clinical context
-    #[clap(long)]
-    pub clinical_notes: Option<String>,
     /// Override for prevalence contamination regression outliers to be removed from prevalence filter and included in output (primary filter category, overrides specifications from JSON)
     #[clap(long)]
     pub prevalence_outliers: Option<bool>,

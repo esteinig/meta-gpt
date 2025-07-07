@@ -56,6 +56,8 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
         }
         #[cfg(feature = "local")]
         Commands::DiagnoseLocal( args ) => {
+            use meta_gpt::gpt::ClinicalContext;
+
 
             let api_client = match args.prefetch {
                 Some(_) => None,
@@ -144,13 +146,18 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
                 None => None
             };
 
+            let clinical_context = match &args.clinical_context {
+                Some(clinical) => Some(ClinicalContext::Custom(clinical.to_string())),
+                None => None
+            };
+
             let result = match result {
                 Some(diagnostic_result) => diagnostic_result,
                 None => {
                     agent.run_local(
                         &mut generator,
                         args.sample_context.clone(),
-                        args.clinical_notes.clone(),
+                        clinical_context,
                         args.assay_context.clone(),
                         args.agent_primer.clone(),
                         &gp_config, 
