@@ -50,7 +50,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
     
                 log::info!("{:#?}", gp_config);
     
-                DiagnosticAgent::new(Some(api_client.clone()))?
+                DiagnosticAgent::new(Some(api_client.clone()), meta_gpt::gpt::TaskConfig::Default)?
                     .prefetch(&args.output, &gp_config)?
             }
         }
@@ -81,7 +81,7 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             };
 
                         
-            let mut agent = DiagnosticAgent::new(api_client)?;
+            let mut agent = DiagnosticAgent::new(api_client, args.task_config.clone())?;
 
 
             let mut generator = TextGenerator::new(

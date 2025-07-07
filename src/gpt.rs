@@ -765,10 +765,19 @@ impl TreeNodeReader for TreeNodes {
     }
 }
 
+
+#[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
+pub enum TaskConfig {
+    Default,
+    Simple,
+    Alternative
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
 pub enum NodeTask {
     DiagnoseDefault,
     DiagnoseSimple,
+    DiagnoseAlternative,
     DiagnoseInfectious,
 }
 impl Into<String> for NodeTask {
@@ -779,14 +788,23 @@ impl Into<String> for NodeTask {
                 2. Consider the potential for background contamination from the environment, reagents and sample site. 
                 3. If a virus is detected, strongly consider an infectious diagnosis.
             "),
-            NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis".to_string(),
+            NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis in the context of the provided sample type [Sample] and clinical information [Clinical].".to_string(),
             NodeTask::DiagnoseInfectious => dedent(r"  
                 You have made an infectious diagnosis for this sample. 
 
                 1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
                 2. Consider the potential for background contamination from the environment, reagents and sample site. If the species is a human pathogen, consider selecting it as most likely pathogen.
                 3. If a virus is detected, strongly consider selecting it as most likely pathogen.
-            ")
+            "),
+            NodeTask::DiagnoseAlternative => dedent(r"
+                You are tasked with making a diagnostic classification of this case as either infectious or non-infectious, based on metagenomic profiling results [Data], clinical presentation [Clinical], and sample type [Sample].
+
+                1. Identify any plausible pathogenic species consistent with the sample type and clinical context.
+                2. Consider potential background contamination, including environmental sources, reagent contaminants, and sample site-associated organisms.
+                3. Weigh the presence of viral species strongly in favor of infection if they plausibly explain the clinical features.
+                4. If no organism explains the clinical presentation, or if findings are consistent with contamination, favor a non-infectious diagnosis.
+                
+            "),
         }
     }
 }
@@ -840,28 +858,46 @@ impl DecisionTree {
             }
         )
     }
-    pub fn tiered() -> Result<Self, GptError> {
+    pub fn tiered(task_config: TaskConfig) -> Result<Self, GptError> {
 
         let check_above_threshold = TreeNode::default()
             .label("check_above_threshold")
             .true_node("diagnose_infectious")
             .false_node("check_below_threshold")
             .with_check(DiagnosticNode::AboveThresholdQuery)
-            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_tasks(
+                match task_config {
+                    TaskConfig::Default => NodeTask::DiagnoseDefault,
+                    TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Alternative => NodeTask::DiagnoseAlternative
+                }
+            )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
 
         let check_below_threshold = TreeNode::default()
             .label("check_below_threshold")
             .next("check_target_threshold")
             .with_check(DiagnosticNode::BelowThresholdQuery)
-            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_tasks(
+                match task_config {
+                    TaskConfig::Default => NodeTask::DiagnoseDefault,
+                    TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Alternative => NodeTask::DiagnoseAlternative
+                }
+            )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
         
         let check_target_threshold = TreeNode::default()
             .label("check_target_threshold")
             .next("integrate_thresholds")
             .with_check(DiagnosticNode::TargetThresholdQuery)
-            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_tasks(
+                match task_config {
+                    TaskConfig::Default => NodeTask::DiagnoseDefault,
+                    TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Alternative => NodeTask::DiagnoseAlternative
+                }
+            )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
 
         let integrate_thresholds = TreeNode::default()
@@ -869,7 +905,13 @@ impl DecisionTree {
             .true_node("diagnose_infectious")
             .false_node("diagnose_non_infectious")
             .with_check(DiagnosticNode::IntegrateThresholds)
-            .with_tasks(NodeTask::DiagnoseDefault)?
+            .with_tasks(
+                match task_config {
+                    TaskConfig::Default => NodeTask::DiagnoseDefault,
+                    TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Alternative => NodeTask::DiagnoseAlternative
+                }
+            )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
         
         let diagnose_infectious = TreeNode::default()
@@ -1091,9 +1133,9 @@ pub struct DiagnosticAgent {
 }
 
 impl DiagnosticAgent {
-    pub fn new(client: Option<CerebroClient>) -> Result<Self, GptError> {
+    pub fn new(client: Option<CerebroClient>, task_config: TaskConfig) -> Result<Self, GptError> {
         
-        let tree = DecisionTree::tiered()?;
+        let tree = DecisionTree::tiered(task_config)?;
         
         Ok(DiagnosticAgent {
             tree: tree.clone(),

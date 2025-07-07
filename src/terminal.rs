@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use clap::{ArgGroup, Args, Parser, Subcommand};
 
 #[cfg(feature = "local")]
-use crate::gpt::AgentPrimer;
+use crate::gpt::{AgentPrimer, TaskConfig};
 use crate::gpt::{GptModel, SampleContext};
 use crate::model::{GeneratorModel, ModelGroup};
 
@@ -261,6 +261,9 @@ pub struct PrefetchArgs {
     /// Clinical context model for diagnostic queries
     #[clap(long)]
     pub sample_context: Option<SampleContext>,
+    /// Task configuration sets for the tiered decision tree
+    #[clap(long, default_value="default")]
+    pub task_config: TaskConfig,
     /// Clinical context model for diagnostic queries
     #[clap(long, default_value="cerebro-filter")]
     pub assay_context: Option<AssayContext>,
