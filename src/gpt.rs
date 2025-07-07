@@ -769,6 +769,7 @@ impl TreeNodeReader for TreeNodes {
 pub enum TaskConfig {
     Default,
     Tiered,
+    TieredBlock,
     Simple,
     Complex,
     Alternative
@@ -783,11 +784,17 @@ pub enum NodeTask {
     DiagnoseDefaultTarget,
     DiagnoseDefaultIntegrate,
 
+    DiagnoseBlockPrimary,
+    DiagnoseBlockSecondary,
+    DiagnoseBlockTarget,
+    DiagnoseBlockIntegrate,
+
     DiagnoseSimple,
     DiagnoseComplex,
     DiagnoseAlternative,
 
     DiagnoseInfectious,
+    DiagnoseBlockInfectious
 }
 impl Into<String> for NodeTask {
     fn into(self) -> String {
@@ -809,7 +816,7 @@ impl Into<String> for NodeTask {
             NodeTask::DiagnoseDefaultPrimary => dedent(r"
                 1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
                 2. Consider the potential for background contamination from reagents, sample site and the environment.
-                3. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon, especially if the species occurs at high abundance.
+                3. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon, especially if the species occurs in high abundance.
                 4. If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultSecondary => dedent(r"
@@ -831,17 +838,36 @@ impl Into<String> for NodeTask {
                 3. Consider making an infectious diagnosis if the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon
                 4. If a virus is detected, strongly consider an infectious diagnosis.
             "),
+            NodeTask::DiagnoseBlockPrimary => dedent(r"
+                Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon, especially if the species occurs in high abundance. If a virus is detected, strongly consider an infectious diagnosis.
+            "),
+            NodeTask::DiagnoseBlockSecondary => dedent(r"
+                Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon. If a virus is detected, strongly consider an infectious diagnosis.
+            "),
+
+            NodeTask::DiagnoseBlockTarget => dedent(r"
+                Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon. If a virus is detected, strongly consider an infectious diagnosis.
+        
+            "),
+            NodeTask::DiagnoseBlockIntegrate => dedent(r"
+                Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause. Consider the potential for background contamination from reagents, sample site and the environment. Consider making an infectious diagnosis if the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon. If a virus is detected, strongly consider an infectious diagnosis.
+        
+            "),
 
             NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis in the context of the provided sample type [Sample] and clinical information [Clinical].".to_string(),
             
             NodeTask::DiagnoseInfectious => dedent(r"  
                 You have made an infectious diagnosis for this sample. 
 
-                1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. 
                 2. Consider the potential for background contamination from the environment, reagents and sample site. 
                 3. If the species is a human pathogen, consider selecting it as most likely pathogen.
                 4. If a virus is detected, strongly consider selecting it as most likely pathogen.
             "),
+            NodeTask::DiagnoseBlockInfectious => dedent(r"  
+                You have made an infectious diagnosis for this sample. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. Consider the potential for background contamination from the environment, reagents and sample site. If the species is a human pathogen, consider selecting it as most likely pathogen. If a virus is detected, strongly consider selecting it as most likely pathogen.
+            "),
+
             NodeTask::DiagnoseComplex => dedent(r"
                 You are tasked with making a diagnostic classification of this case as either Infectious or Non-infectious, based on the metagenomic profiling results [Data], clinical presentation [Clinical], and sample type [Sample].
 
@@ -974,7 +1000,8 @@ impl DecisionTree {
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
                     TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
-                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultPrimary
+                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultPrimary,
+                    TaskConfig::TieredBlock => NodeTask::DiagnoseBlockPrimary
                 }
             )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
@@ -989,7 +1016,8 @@ impl DecisionTree {
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
                     TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
-                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultSecondary
+                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultSecondary,
+                    TaskConfig::TieredBlock => NodeTask::DiagnoseBlockSecondary
                 }
             )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
@@ -1004,7 +1032,8 @@ impl DecisionTree {
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
                     TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
-                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultTarget
+                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultTarget,
+                    TaskConfig::TieredBlock => NodeTask::DiagnoseBlockTarget
                 }
             )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
@@ -1020,7 +1049,8 @@ impl DecisionTree {
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
                     TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
-                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultIntegrate
+                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultIntegrate,
+                    TaskConfig::TieredBlock => NodeTask::DiagnoseBlockIntegrate
                 }
             )?
             .with_instructions(NodeInstruction::DiagnoseDefault)?;
@@ -1029,7 +1059,11 @@ impl DecisionTree {
             .label("diagnose_infectious")
             .final_node(true)
             .with_check(DiagnosticNode::DiagnoseInfectious)
-            .with_tasks(NodeTask::DiagnoseInfectious)?
+            .with_tasks(
+                match task_config {
+                    TaskConfig::TieredBlock => NodeTask::DiagnoseBlockInfectious,
+                    _ => NodeTask::DiagnoseInfectious
+                })?
             .with_instructions(NodeInstruction::DiagnoseInfectious)?;
         
         let diagnose_non_infectious = TreeNode::default()
