@@ -795,37 +795,37 @@ impl Into<String> for NodeTask {
             NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.".to_string(),
             
             NodeTask::DiagnoseDefaultPrimary => dedent(r"
-                1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                2. Consider the potential for background contamination from reagents, sample site and the environment.
-                3. Consider making an infectious diagnosis if the species occurs, even if the species is a rare human pathogen.
-                4. If a virus is detected, strongly consider an infectious diagnosis.
+                - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
+                - Consider the potential for background contamination from reagents, sample site and the environment.
+                - Consider making an infectious diagnosis if the species occurs, even if the species is a rare human pathogen.
+                - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultSecondary => dedent(r"
-                1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                2. Consider the potential for background contamination from reagents, sample site and the environment. 
-                3. Consider making an infectious diagnosis if the species is a common human pathogen. 
-                5. If a virus is detected, strongly consider an infectious diagnosis.
+                - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
+                - Consider the potential for background contamination from reagents, sample site and the environment. 
+                - Consider making an infectious diagnosis if the species is a common human pathogen. 
+                - If a virus is detected, strongly consider an infectious diagnosis.
             "),
 
             NodeTask::DiagnoseDefaultTarget => dedent(r"
-                1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.
-                2. Consider the potential for background contamination from reagents, sample site and the environment. 
-                3. Consider making an infectious diagnosis if the species is a common human pathogen.
-                4. If a virus is detected, strongly consider an infectious diagnosis.
+                - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.
+                - Consider the potential for background contamination from reagents, sample site and the environment. 
+                - Consider making an infectious diagnosis if the species is a common human pathogen.
+                - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultIntegrate => dedent(r"
-                1. Determine if the metagenomic taxonomic profiling data supports an infectious diagnosis or a non-infectious diagnosis.
-                2. Consider the potential for background contamination from reagents, sample site and the environment. 
-                3. Consider making an infectious diagnosis if the species is a common human pathogen.
-                4. If a virus is detected, strongly consider an infectious diagnosis.
+                - Determine if the metagenomic taxonomic profiling data supports an infectious diagnosis or a non-infectious diagnosis.
+                - Consider the potential for background contamination from reagents, sample site and the environment. 
+                - Consider making an infectious diagnosis if the species is a common human pathogen.
+                - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseInfectious => dedent(r"  
                 You have made an infectious diagnosis for this sample. 
 
-                1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. 
-                2. Consider the potential for background contamination from the environment, reagents and sample site. 
-                3. If the species is a human pathogen, consider selecting it as most likely pathogen.
-                4. If a virus is detected, strongly consider selecting it as most likely pathogen.
+                - Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. 
+                - Consider the potential for background contamination from the environment, reagents and sample site. 
+                - If the species is a human pathogen, consider selecting it as most likely pathogen.
+                - If a virus is detected, strongly consider selecting it as most likely pathogen.
             "),
         }
     }
