@@ -808,8 +808,8 @@ impl Into<String> for NodeTask {
 
             NodeTask::DiagnoseDefaultPrimary => dedent(r"
                 1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                2. Consider the potential for background contamination from reagents, sample site and the environment. 
-                3. Consider making an infectious diagnosis if you are certain the species is a human pathogen or the species occurs at very high abundance. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for the provided sample type or clinical context. 
+                2. Consider the potential for background contamination from reagents, sample site and the environment.
+                3. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for the provided sample type or clinical context, especially if the species ocurrs at high abundance.
                 4. If a virus is detected, strongly consider an infectious diagnosis. 
             "),
             NodeTask::DiagnoseDefaultSecondary => dedent(r"
