@@ -226,7 +226,7 @@ impl SampleContext {
             SampleContext::Eye => String::from("Vitreous fluid (VF)"),
             SampleContext::None => String::from("No sample context provided.")
         };
-        format!("\n[Sample]\n{}\n", sample_type)
+        format!("\n[Sample]\n{}\n\n", sample_type)
     }
 }
 
@@ -243,7 +243,7 @@ impl ClinicalContext {
             ClinicalContext::Custom(str)=> str.to_string(),
             ClinicalContext::None => String::from("No clinical context provided.")
         };
-        format!("\n[Clinical]\n{}\n", clinical)
+        format!("\n[Clinical]\n{}\n\n", clinical)
     }
 }
 
@@ -775,9 +775,9 @@ impl Into<String> for NodeTask {
     fn into(self) -> String {
         match self {
             NodeTask::DiagnoseDefault => dedent(r"  
-                1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                2. Consider the potential for background contamination from the environment, reagents and sample site. Consider making an infectious diagnosis if the species is a common human pathogen for the provided sample type [Sample] and clinical information [Clinical].
-                3. If a virus is detected, strongly consider an infectious diagnosis. 
+                1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                2. Consider the potential for background contamination from the environment, reagents and sample site. 
+                3. If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis".to_string(),
             NodeTask::DiagnoseInfectious => dedent(r"  
