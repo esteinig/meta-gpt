@@ -198,14 +198,13 @@ impl AssayContext {
     pub fn text(&self) -> String {
         match self {
             AssayContext::CerebroFilter => dedent(r"
-                We conducted metagenomic sequencing for pathogen detection and diagnosis (Illumina PE, RNA and DNA libraries on NextSeq). Filtering the taxonomic profiling data from the bioinformatics pipeline produced three subsets of the same dataset: 
-                primary threshold (specific but less sensitive for pathogen detection, moderate to high abundance organisms), secondary threshold (sensitive but less specific for pathogen detection, low to moderate abundance organisms), and a 
-                target filter section containing high priority pathogens of interest (very sensitive but not specific for pathogen detection, very low to low abundance but may still be signficant). Our pipeline uses multiple profiling methods for pathogen detection - 
-                read alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). 
+                We conducted metagenomic sequencing for pathogen detection and diagnosis (Illumina PE, RNA and DNA libraries). Filtering the taxonomic profiling data from the bioinformatics pipeline produced three subsets of the same dataset: 
+                primary threshold (present at high abundance), secondary threshold (present at moderate to low abundance), and a target threshold for high priority pathogens (present at low abundance). Our pipeline uses multiple methods for 
+                pathogen detection - alignment (reads per million, RPM), k-mer classifiers (read per million, RPM) and metagenome assembly (contigs, bases). RPM and contigs/bases provided for each detected species are the primary evidence.
                 
-                Values for each species are the outputs from multiple methods or tools used for taxonomic profiling. Species names are taxonomic species names (genus name and species name). If you do not know a species, assume that the provided species name is correct - 
-                do not interpret unknown species names as another species you know. You must make your considerations and determinations based on the species, not the genus. For viral species, traditional abbreviations and alternative names may be provided, which you can 
-                assume are correct alternatives to the output species name.
+                Species names are taxonomic species names (genus name and species name). If you do not know a species, assume that the provided species name is correct - do not interpret unknown species names as another species you know. 
+                You must make your considerations and determinations based on the species, not the genus. For viral species, traditional abbreviations and alternative names may be provided, which you can assume are valid alternatives to 
+                the output species name.
             "),
             AssayContext::None => String::from("No assay context provided.")
         }
@@ -810,26 +809,26 @@ impl Into<String> for NodeTask {
             NodeTask::DiagnoseDefaultPrimary => dedent(r"
                 1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
                 2. Consider the potential for background contamination from reagents, sample site and the environment.
-                3. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for the provided sample type or clinical context - especially if the species occurs at high abundance.
-                4. If a virus is detected, strongly consider an infectious diagnosis. If a eukaryotic pathogen is detected consider the genus as well as the species in making a diagnosis.
+                3. Consider making an infectious diagnosis even if the pathogen is unusual or uncommon for sample type or clinical context, especially if the species occurs at high abundance.
+                4. If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultSecondary => dedent(r"
                 1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
                 2. Consider the potential for background contamination from reagents, sample site and the environment. 
-                3. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
+                3. Consider making an infectious diagnosis if the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for sample type or clinical context.
                 4. If a virus is detected, strongly consider an infectious diagnosis.
             "),
 
             NodeTask::DiagnoseDefaultTarget => dedent(r"
                 1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
                 2. Consider the potential for background contamination from reagents, sample site and the environment. 
-                3. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
+                3. Consider making an infectious diagnosis if the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon forsample type or clinical context.
                 4. If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultIntegrate => dedent(r"
                 1. Determine if the metagenomic taxonomic profiling data supports an infectious diagnosis or a non-infectious diagnosis. Infectious clinical symptoms do not necessarily indicate an infectious cause.
                 2. Consider the potential for background contamination from reagents, sample site and the environment. 
-                3. Consider making an infectious diagnosis if you are certain the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for the provided sample type or clinical context.
+                3. Consider making an infectious diagnosis if the species is a common human pathogen. Consider making a non-infectious diagnosis if the species is unusual or uncommon for sample type or clinical context.
                 4. If a virus is detected, strongly consider an infectious diagnosis.
             "),
 
@@ -839,8 +838,9 @@ impl Into<String> for NodeTask {
                 You have made an infectious diagnosis for this sample. 
 
                 1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                2. Consider the potential for background contamination from the environment, reagents and sample site. If the species is a human pathogen, consider selecting it as most likely pathogen.
-                3. If a virus is detected, strongly consider selecting it as most likely pathogen.
+                2. Consider the potential for background contamination from the environment, reagents and sample site. 
+                3. If the species is a human pathogen, consider selecting it as most likely pathogen.
+                4. If a virus is detected, strongly consider selecting it as most likely pathogen.
             "),
             NodeTask::DiagnoseComplex => dedent(r"
                 You are tasked with making a diagnostic classification of this case as either Infectious or Non-infectious, based on the metagenomic profiling results [Data], clinical presentation [Clinical], and sample type [Sample].
