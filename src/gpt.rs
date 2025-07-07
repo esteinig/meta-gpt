@@ -771,6 +771,7 @@ pub enum TaskConfig {
     Default,
     Tiered,
     Simple,
+    Complex,
     Alternative
 }
 
@@ -783,6 +784,7 @@ pub enum NodeTask {
     DiagnoseDefaultIntegrate,
 
     DiagnoseSimple,
+    DiagnoseComplex,
     DiagnoseAlternative,
 
     DiagnoseInfectious,
@@ -839,6 +841,72 @@ impl Into<String> for NodeTask {
                 2. Consider the potential for background contamination from the environment, reagents and sample site. If the species is a human pathogen, consider selecting it as most likely pathogen.
                 3. If a virus is detected, strongly consider selecting it as most likely pathogen.
             "),
+            NodeTask::DiagnoseComplex => dedent(r"
+                You are tasked with making a diagnostic classification of this case as either Infectious or Non-infectious, based on the metagenomic profiling results [Data], clinical presentation [Clinical], and sample type [Sample].
+
+                In addition, you must evaluate each detected species in [Data] and assign one of the following tags:
+
+                    Pathogen: if the species plausibly causes infection in the provided context clinical and sample type context
+
+                    Contaminant: if the species is likely introduced from the environment, reagents, or normal flora
+
+                    Unknown: if there is insufficient evidence to assign confidently to either category
+
+                ===============================
+                STEP 1: Clinical Interpretation
+                ===============================
+
+                Review the clinical presentation and sample type. Consider:
+
+                    * Is the clinical picture consistent with an infectious syndrome?
+
+                    * Does the sample site normally contain microbial nucleic acid?
+
+                    * Are symptoms temporally or anatomically linked to infection by a specific pathogen?
+
+                ===============================
+                Step 2: Species Assessment
+                ===============================
+
+                For each species in [Data], assess:
+
+                    * Abundance and strength of detection (RPM, contigs and bases)
+
+                    * Biological plausibility:
+
+                        * Is the organism known to infect humans?
+
+                        * Is it associated with this sample type or clinical syndrome?
+
+                        * Does it match the tissue tropism and epidemiology?
+
+                    * Contamination potential:
+
+                        * Is the species commonly detected in reagents?
+
+                        * Is it part of normal flora at the sample site?
+
+                        * Is it a known lab or environmental contaminant?
+
+                Then tag each species with one of:
+
+                    * Pathogen: fits the clinical context and biological plausibility
+
+                    * Contaminant: likely introduced from non-infectious sources
+
+                    * Unknown: plausible but insufficient evidence for a confident call
+                
+                ===============================
+                STEP 3: Diagnosis
+                ===============================
+
+                Make a definitive diagnostic classification:
+
+                    * If one of the Pathogen species can plausibly explain the clinical presentation and sample type, classify as Infectious.
+
+                    * If all detected species are tagged as Contaminant or Unknown and no plausible link to clinical symptoms exists, classify as Non-infectious.
+
+            ")
         }
     }
 }
@@ -903,6 +971,7 @@ impl DecisionTree {
                 match task_config {
                     TaskConfig::Default => NodeTask::DiagnoseDefault,
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
                     TaskConfig::Tiered => NodeTask::DiagnoseDefaultPrimary
                 }
@@ -917,6 +986,7 @@ impl DecisionTree {
                 match task_config {
                     TaskConfig::Default => NodeTask::DiagnoseDefault,
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
                     TaskConfig::Tiered => NodeTask::DiagnoseDefaultSecondary
                 }
@@ -931,6 +1001,7 @@ impl DecisionTree {
                 match task_config {
                     TaskConfig::Default => NodeTask::DiagnoseDefault,
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
                     TaskConfig::Tiered => NodeTask::DiagnoseDefaultTarget
                 }
@@ -946,6 +1017,7 @@ impl DecisionTree {
                 match task_config {
                     TaskConfig::Default => NodeTask::DiagnoseDefault,
                     TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Complex => NodeTask::DiagnoseComplex,
                     TaskConfig::Alternative => NodeTask::DiagnoseAlternative,
                     TaskConfig::Tiered => NodeTask::DiagnoseDefaultIntegrate
                 }
