@@ -225,7 +225,7 @@ impl SampleContext {
             SampleContext::Eye => String::from("Vitreous fluid (VF)"),
             SampleContext::None => String::from("No sample context provided.")
         };
-        format!("[Sample]\n{}", sample_type)
+        format!("\n[Sample]\n{}", sample_type)
     }
 }
 
@@ -242,7 +242,7 @@ impl ClinicalContext {
             ClinicalContext::Custom(str)=> str.to_string(),
             ClinicalContext::None => String::from("No clinical context provided.")
         };
-        format!("[Clinical]\n{}", clinical)
+        format!("\n[Clinical]\n{}", clinical)
     }
 }
 
@@ -892,7 +892,7 @@ impl DecisionTree {
         Ok(
             Self {
                 name: "tiered".to_string(),
-                version: "0.2.0".to_string(),
+                version: "0.3.0".to_string(),
                 description: "Tiered decision making process using tiered filter sections of the metagenomic taxonomic profiling data as primary determination of infectious or non-infectious samples".to_string(),
                 max_repeats: 3,
                 nodes: TreeNodes::from_vec(nodes)?
