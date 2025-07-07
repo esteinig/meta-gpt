@@ -793,24 +793,27 @@ impl Into<String> for NodeTask {
 
 #[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
 pub enum NodeInstruction {
-    DiagnosisDefault,
+    DiagnoseDefault,
     DiagnoseInfectious,
 }
 
 impl Into<String> for NodeInstruction {
     fn into(self) -> String {
         match self {
-            NodeInstruction::DiagnosisDefault => dedent(r"
+            NodeInstruction::DiagnoseDefault => dedent(r"
                 1.  Output your determination inside <result></result> tags (XML).
                 1a. Output 'yes' in <result></result> tags (<result>yes</result>) if the data supports an infectious diagnosis. 
                 1b. Output 'no' in <result></result> tags (<result>no</result>) if the data does not support an infectious diagnosis. 
             "),
-            NodeInstruction::DiagnoseInfectious => dedent(r"  
-                You have made an infectious diagnosis for this sample. 
+            NodeInstruction::DiagnoseInfectious => dedent(r"
+                1.  Output the most likely pathogen inside <pathogen></pathogen> (XML).
+                1a. You must select only one of the species in [Data] - the most likely pathogen - and place it into <pathogen></pathogen> tags (XML)
+                1b. You are not allowed to put a value other than the pathogen species inside <pathogen></pathogen> tags (XML).
+                1c. You must place the exact genus and species name from [Data] inside <pathogen></pathogen> tags (XML).
 
-                1. Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] and the provided context [Context]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                2. Consider the potential for background contamination from reagents, sample site and the environment. Consider making the determination if the species is a human pathogen.
-                3. If a virus is detected, strongly consider a selection as most likely pathogen.
+                Example: <pathogen>Rodorendens figura</pathogen>
+
+                Your output:
             ")
         }
     }
@@ -844,21 +847,21 @@ impl DecisionTree {
             .false_node("check_below_threshold")
             .with_check(DiagnosticNode::AboveThresholdQuery)
             .with_tasks(NodeTask::DiagnoseDefault)?
-            .with_instructions(NodeInstruction::DiagnosisDefault)?;
+            .with_instructions(NodeInstruction::DiagnoseDefault)?;
 
         let check_below_threshold = TreeNode::default()
             .label("check_below_threshold")
             .next("check_target_threshold")
             .with_check(DiagnosticNode::BelowThresholdQuery)
             .with_tasks(NodeTask::DiagnoseDefault)?
-            .with_instructions(NodeInstruction::DiagnosisDefault)?;
+            .with_instructions(NodeInstruction::DiagnoseDefault)?;
         
         let check_target_threshold = TreeNode::default()
             .label("check_target_threshold")
             .next("integrate_thresholds")
             .with_check(DiagnosticNode::TargetThresholdQuery)
             .with_tasks(NodeTask::DiagnoseDefault)?
-            .with_instructions(NodeInstruction::DiagnosisDefault)?;
+            .with_instructions(NodeInstruction::DiagnoseDefault)?;
 
         let integrate_thresholds = TreeNode::default()
             .label("integrate_thresholds")
@@ -866,7 +869,7 @@ impl DecisionTree {
             .false_node("diagnose_non_infectious")
             .with_check(DiagnosticNode::IntegrateThresholds)
             .with_tasks(NodeTask::DiagnoseDefault)?
-            .with_instructions(NodeInstruction::DiagnosisDefault)?;
+            .with_instructions(NodeInstruction::DiagnoseDefault)?;
         
         let diagnose_infectious = TreeNode::default()
             .label("diagnose_infectious")
