@@ -834,7 +834,7 @@ dependencies = [
 [[package]]
 name = "cerebro-client"
 version = "0.11.0"
-source = "git+https://github.com/esteinig/cerebro?branch=main#13c5572535f71006675e29f23d71499f84af54af"
+source = "git+https://github.com/esteinig/cerebro?branch=main#5da40612123a5cc5a1eeafb3e5d0d36bfc53b2b7"
 dependencies = [
  "actix-web-httpauth",
  "anstyle",
@@ -865,7 +865,7 @@ dependencies = [
 [[package]]
 name = "cerebro-model"
 version = "0.11.0"
-source = "git+https://github.com/esteinig/cerebro?branch=main#13c5572535f71006675e29f23d71499f84af54af"
+source = "git+https://github.com/esteinig/cerebro?branch=main#5da40612123a5cc5a1eeafb3e5d0d36bfc53b2b7"
 dependencies = [
  "actix-web",
  "actix-web-httpauth",
@@ -892,7 +892,7 @@ dependencies = [
 [[package]]
 name = "cerebro-pipeline"
 version = "0.11.0"
-source = "git+https://github.com/esteinig/cerebro?branch=main#13c5572535f71006675e29f23d71499f84af54af"
+source = "git+https://github.com/esteinig/cerebro?branch=main#5da40612123a5cc5a1eeafb3e5d0d36bfc53b2b7"
 dependencies = [
  "ansi_term",
  "anstyle",
