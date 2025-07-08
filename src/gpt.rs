@@ -1027,26 +1027,32 @@ impl PrefetchData {
         }
     }
     /// Remove from `secondary` any Taxon whose `lineage` also appears in `primary`,
-    /// then remove from `target` any Taxon whose `lineage` also appears in the (now-pruned) `secondary`.
+    /// then remove from `target` any Taxon whose `lineage` also appears in the 
+    /// pruned `secondary` and 'primary'
     pub fn prune(&mut self) {
 
-        log::info!("Pruning tiered filter categories...");
+        log::info!("Pruning tiered filter categories");
         
-        // 1) collect all lineages present in primary
+        // collect all lineages present in primary
         let primary_lineages: HashSet<_> =
             self.primary.iter().map(|t| t.lineage.clone()).collect();
 
-        // 2) drop from secondary anything already in primary
+        // drop from secondary anything already in primary
         self.secondary
             .retain(|t| !primary_lineages.contains(&t.lineage));
 
-        // 3) now collect lineages in the (pruned) secondary
+        // now collect lineages in the (pruned) secondary
         let secondary_lineages: HashSet<_> =
             self.secondary.iter().map(|t| t.lineage.clone()).collect();
 
-        // 4) drop from target anything already in secondary
+        // drop from target anything already in secondary
         self.target
             .retain(|t| !secondary_lineages.contains(&t.lineage));
+
+        // drop from target anything already in primary
+        self.target
+            .retain(|t| !primary_lineages.contains(&t.lineage));
+        
     }
     pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
         let data = serde_json::to_string_pretty(self).map_err(|err| GptError::SerdeJsonError(err))?;
