@@ -1001,6 +1001,9 @@ pub struct PrefetchData {
     pub primary: Vec<Taxon>,
     pub secondary: Vec<Taxon>,
     pub target: Vec<Taxon>,
+    pub primary_contamination: Vec<Taxon>,
+    pub secondary_contamination: Vec<Taxon>,
+    pub target_contamination: Vec<Taxon>,
     pub primary_filter: TaxonFilterConfig,
     pub secondary_filter: TaxonFilterConfig,
     pub target_filter: TaxonFilterConfig,
@@ -1011,6 +1014,9 @@ impl PrefetchData {
         primary: Vec<Taxon>,
         secondary: Vec<Taxon>,
         target: Vec<Taxon>,
+        primary_contamination: Vec<Taxon>,
+        secondary_contamination: Vec<Taxon>,
+        target_contamination: Vec<Taxon>,
         primary_filter: &TaxonFilterConfig,
         secondary_filter: &TaxonFilterConfig,
         target_filter: &TaxonFilterConfig,
@@ -1020,6 +1026,9 @@ impl PrefetchData {
             primary,
             secondary,
             target,
+            primary_contamination,
+            secondary_contamination,
+            target_contamination,
             primary_filter: primary_filter.clone(),
             secondary_filter: secondary_filter.clone(),
             target_filter: target_filter.clone(),
@@ -1036,23 +1045,34 @@ impl PrefetchData {
         // collect all lineages present in primary
         let primary_lineages: HashSet<_> =
             self.primary.iter().map(|t| t.lineage.clone()).collect();
+        let primary_contam_lineages: HashSet<_> =
+            self.primary_contamination.iter().map(|t| t.lineage.clone()).collect();
 
         // drop from secondary anything already in primary
         self.secondary
             .retain(|t| !primary_lineages.contains(&t.lineage));
 
+        self.secondary
+            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
+
         // now collect lineages in the (pruned) secondary
         let secondary_lineages: HashSet<_> =
             self.secondary.iter().map(|t| t.lineage.clone()).collect();
+        let secondary_contam_lineages: HashSet<_> =
+            self.secondary_contamination.iter().map(|t| t.lineage.clone()).collect();
 
         // drop from target anything already in secondary
         self.target
             .retain(|t| !secondary_lineages.contains(&t.lineage));
+        self.target
+            .retain(|t| !secondary_contam_lineages.contains(&t.lineage));
 
         // drop from target anything already in primary
         self.target
             .retain(|t| !primary_lineages.contains(&t.lineage));
-        
+        self.target
+            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
+
     }
     pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
         let data = serde_json::to_string_pretty(self).map_err(|err| GptError::SerdeJsonError(err))?;
@@ -1183,7 +1203,7 @@ impl DiagnosticAgent {
                 config.ignore_taxstr.clone()
             );
 
-            let (primary, _) = client.get_taxa( 
+            let (primary, primary_contamination) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 primary_filter_config, 
                 &config.contamination,
@@ -1196,7 +1216,7 @@ impl DiagnosticAgent {
                 config.ignore_taxstr.clone()
             );
 
-            let (secondary, _) = client.get_taxa( 
+            let (secondary, secondary_contamination) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 secondary_filter_config, 
                 &config.contamination,
@@ -1207,7 +1227,7 @@ impl DiagnosticAgent {
             let target_filter_config = &TaxonFilterConfig::gp_target_threshold(
                 config.ignore_taxstr.clone()
             );
-            let (target, _) = client.get_taxa( 
+            let (target, target_contamination) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 target_filter_config, 
                 &config.contamination,
@@ -1218,6 +1238,9 @@ impl DiagnosticAgent {
                 primary, 
                 secondary, 
                 target, 
+                primary_contamination,
+                secondary_contamination,
+                target_contamination,
                 primary_filter_config,
                 secondary_filter_config,
                 target_filter_config,
