@@ -22,8 +22,6 @@ pub enum GptError {
     #[error(transparent)]
     CerebroModelError(#[from] cerebro_model::api::cerebro::model::ModelError),
     #[error(transparent)]
-    CerebroClientError(#[from] cerebro_client::error::HttpClientError),
-    #[error(transparent)]
     CerebroPipelineError(#[from] cerebro_pipeline::error::WorkflowError),
     #[error(transparent)]
     NifflerError(#[from] niffler::Error),
