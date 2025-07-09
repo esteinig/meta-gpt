@@ -1,9 +1,7 @@
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use cerebro_model::api::cerebro::schema::{MetaGpConfig, PrevalenceOutliers};
-use cerebro_pipeline::taxa::filter::PrevalenceContaminationConfig;
+use std::path::{Path};
 use csv::{Reader, ReaderBuilder, Writer, WriterBuilder};
 use env_logger::Builder;
 use env_logger::fmt::Color;

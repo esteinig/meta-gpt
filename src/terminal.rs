@@ -1,13 +1,11 @@
 use std::path::PathBuf;
-use clap::{ArgGroup, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 #[cfg(feature = "local")]
-use crate::gpt::{AgentPrimer, TaskConfig};
-use crate::gpt::{GptModel, SampleContext};
 use crate::model::{GeneratorModel, ModelGroup};
 
 #[cfg(feature = "local")]
-use crate::{gpt::AssayContext, text::TextGeneratorArgs};
+use crate::text::TextGeneratorArgs;
 
 /// Cerebro: metagenomic generative practitioner (GPT)
 #[derive(Debug, Parser)]

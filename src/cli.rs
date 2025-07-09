@@ -1,4 +1,3 @@
-
 use clap::Parser;
 use meta_gpt::terminal::{App, Commands};
 use meta_gpt::utils::{init_logger};
