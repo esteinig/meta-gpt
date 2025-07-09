@@ -1051,7 +1051,6 @@ impl PrefetchData {
         // drop from secondary anything already in primary
         self.secondary
             .retain(|t| !primary_lineages.contains(&t.lineage));
-
         self.secondary
             .retain(|t| !primary_contam_lineages.contains(&t.lineage));
 
@@ -1087,92 +1086,6 @@ impl PrefetchData {
     }
 }
 
-impl PrefetchData {
-    /// Draw a grouped horizontal bar chart of “# taxa per domain” in each tier,
-    /// and save it as an SVG to `output_path`.
-    pub fn plot_domain_counts_svg(&self, output_path: &Path) -> Result<(), GptError> {
-        // 1) Define domains and tiers
-        let domains    = ["Bacteria", "Eukaryota", "Viruses"];
-        let tier_names = ["primary", "secondary", "target"];
-        let tier_data  = [&self.primary, &self.secondary, &self.target];
-
-        // 2) Count per (tier, domain)
-        let mut counts = Vec::with_capacity(tier_data.len());
-        for taxa in &tier_data {
-            let mut c = [0u32; 3];
-            for (i, &domain) in domains.iter().enumerate() {
-                c[i] = taxa
-                    .iter()
-                    .filter(|t| t.lineage.get_domain().as_deref() == Some(domain))
-                    .count() as u32;
-            }
-            counts.push(c);
-        }
-        let max_count = counts
-            .iter()
-            .flat_map(|arr| arr.iter())
-            .cloned()
-            .max()
-            .unwrap_or(0);
-
-        // 3) Create SVG backend
-        let root = SVGBackend::new(output_path, (800, 400)).into_drawing_area();
-        root.fill(&WHITE)?;
-
-        // 4) Build cartesian axes: X from 0..max_count, Y from 0.0..3.0
-        let y_max = tier_data.len() as f64;
-        let mut chart = ChartBuilder::on(&root)
-            .margin(10)
-            .caption("Taxa per Domain by Filter Tier", ("sans-serif", 20))
-            .x_label_area_size(40)
-            .y_label_area_size(80)
-            .build_cartesian_2d(0u32..(max_count + 1), 0f64..y_max)?;
-
-        // 5) Configure mesh, custom y‐axis labels
-        chart
-            .configure_mesh()
-            .disable_mesh()
-            .x_desc("Number of Taxa")
-            .y_desc("Filter Tier")
-            .y_labels(tier_data.len())
-            .y_label_formatter(&|v| {
-                let idx = *v as usize;
-                if idx < tier_names.len() {
-                    tier_names[idx].to_string()
-                } else {
-                    "".to_string()
-                }
-            })
-            .draw()?;
-
-        // 6) Bar geometry: three bars per tier
-        let bar_height    = 0.2;
-        let spacing       = 0.05;
-        let group_height  = bar_height * domains.len() as f64 + spacing * (domains.len() - 1) as f64;
-        let half_group    = group_height / 2.0;
-        let colors        = [&BLUE, &GREEN, &RED];
-
-        for (tier_idx, domain_counts) in counts.iter().enumerate() {
-            let tier_y = tier_idx as f64;
-            for (dom_idx, &val) in domain_counts.iter().enumerate() {
-                // offset each bar within the group so they don't overlap
-                let offset = (dom_idx as f64) * (bar_height + spacing) - half_group + (bar_height / 2.0);
-                let y0 = tier_y + offset;
-                let y1 = y0 + bar_height;
-
-                chart.draw_series(std::iter::once(
-                    Rectangle::new(
-                        [(0u32, y0), (val, y1)],
-                        colors[dom_idx].filled(),
-                    ),
-                ))?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
 pub struct DiagnosticAgent {
     pub state: AgentState,
     pub tree: DecisionTree,
@@ -1193,7 +1106,12 @@ impl DiagnosticAgent {
         })
     }
 
-    pub fn prefetch(&self, output: &Path, config: &MetaGpConfig) -> Result<(), GptError> {
+    pub fn prefetch(
+        &self, 
+        output: &Path, 
+        config: &MetaGpConfig, 
+        prevalence_contamination: HashMap<String, HashSet<String>>
+    ) -> Result<(), GptError> {
         
         log::info!("Fetching primary threshold data for sample '{}'", config.sample);
 
@@ -1206,7 +1124,7 @@ impl DiagnosticAgent {
             let (primary, primary_contamination) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 primary_filter_config, 
-                &config.contamination,
+                prevalence_contamination.clone(),
                 config.prevalence_outliers.primary
             )?;
     
@@ -1219,7 +1137,7 @@ impl DiagnosticAgent {
             let (secondary, secondary_contamination) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 secondary_filter_config, 
-                &config.contamination,
+                prevalence_contamination.clone(),
                 config.prevalence_outliers.secondary
             )?;
     
@@ -1230,7 +1148,7 @@ impl DiagnosticAgent {
             let (target, target_contamination) = client.get_taxa( 
                 &CerebroIdentifierSchema::from_gp_config(config), 
                 target_filter_config, 
-                &config.contamination,
+                prevalence_contamination.clone(),
                 config.prevalence_outliers.target
             )?;
 
@@ -1378,7 +1296,7 @@ impl DiagnosticAgent {
         assay_context: Option<AssayContext>, 
         agent_primer: Option<AgentPrimer>,
         config: &MetaGpConfig,
-        prefetch: Option<PrefetchData>,
+        prefetch: PrefetchData,
         post_filter: Option<PostFilterConfig>,
         disable_thinking: bool
     ) -> Result<DiagnosticResult, GptError> {
@@ -1425,23 +1343,7 @@ impl DiagnosticAgent {
                 Some(DiagnosticNode::AboveThresholdQuery) => {
 
                     // Taxon 
-                    let primary_taxa = match prefetch {
-                        Some(ref data) => data.primary.clone(),
-                        None => {
-                            let (primary, _) = match &self.client {
-                                Some(client) => client.get_taxa( 
-                                    &CerebroIdentifierSchema::from_gp_config(config), 
-                                    &TaxonFilterConfig::gp_above_threshold(
-                                        config.ignore_taxstr.clone()
-                                    ), 
-                                    &config.contamination,
-                                    config.prevalence_outliers.primary
-                                )?,
-                                None => return Err(GptError::CerebroClientNotProvided)
-                            };
-                            primary
-                        }
-                    };
+                    let primary_taxa = prefetch.primary.clone();
 
                     log::info!("Primary taxa: {}", primary_taxa.len());
 
@@ -1501,23 +1403,7 @@ impl DiagnosticAgent {
 
                 Some(DiagnosticNode::BelowThresholdQuery) => {
                     
-                    let secondary_taxa = match prefetch {
-                        Some(ref data) => data.secondary.clone(),
-                        None => {
-                            let (secondary, _) = match &self.client { 
-                                Some(client) => client.get_taxa( 
-                                    &CerebroIdentifierSchema::from_gp_config(config), 
-                                    &TaxonFilterConfig::gp_below_threshold(
-                                        config.ignore_taxstr.clone()
-                                    ), 
-                                    &config.contamination,
-                                    config.prevalence_outliers.secondary
-                                )?,
-                                None =>  return Err(GptError::CerebroClientNotProvided)
-                            };
-                            secondary
-                        }
-                    };
+                    let secondary_taxa = prefetch.secondary.clone();
 
                     let secondary_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(secondary_taxa, post_filter)?
@@ -1572,23 +1458,7 @@ impl DiagnosticAgent {
                 },
                 Some(DiagnosticNode::TargetThresholdQuery) => {
 
-                    let target_taxa = match prefetch {
-                        Some(ref data) => data.target.clone(),
-                        None => {
-                            let (target, _) = match &self.client {
-                                Some(client) => client.get_taxa( 
-                                    &CerebroIdentifierSchema::from_gp_config(config), 
-                                    &TaxonFilterConfig::gp_target_threshold(
-                                        config.ignore_taxstr.clone()
-                                    ), 
-                                    &config.contamination,
-                                    config.prevalence_outliers.target
-                                )?,
-                            None => return Err(GptError::CerebroClientNotProvided)
-                            };
-                            target
-                        }
-                    };
+                    let target_taxa = prefetch.target.clone();
 
                     let target_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(target_taxa, post_filter)?
