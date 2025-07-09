@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
-#[cfg(feature = "local")]
 use crate::model::{GeneratorModel, ModelGroup};
 
 #[cfg(feature = "local")]
