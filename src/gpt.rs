@@ -1,14 +1,9 @@
-// main.rs
-
-
 use anyhow::Result;
-use cerebro_client::client::CerebroClient;
-use cerebro_model::api::cerebro::schema::{CerebroIdentifierSchema, MetaGpConfig, PostFilterConfig};
-use cerebro_pipeline::taxa::filter::TaxonFilterConfig;
+use cerebro_model::api::cerebro::schema::{PrefetchData, PostFilterConfig};
 use cerebro_pipeline::taxa::taxon::{collapse_taxa, LineageOperations, Taxon};
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{BufWriter, Write};
@@ -996,183 +991,22 @@ fn dedent(input: &str) -> String {
         .join("\n")
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PrefetchData {
-    pub primary: Vec<Taxon>,
-    pub secondary: Vec<Taxon>,
-    pub target: Vec<Taxon>,
-    pub primary_contamination: Vec<Taxon>,
-    pub secondary_contamination: Vec<Taxon>,
-    pub target_contamination: Vec<Taxon>,
-    pub primary_filter: TaxonFilterConfig,
-    pub secondary_filter: TaxonFilterConfig,
-    pub target_filter: TaxonFilterConfig,
-    pub config: MetaGpConfig
-}
-impl PrefetchData {
-    pub fn new(
-        primary: Vec<Taxon>,
-        secondary: Vec<Taxon>,
-        target: Vec<Taxon>,
-        primary_contamination: Vec<Taxon>,
-        secondary_contamination: Vec<Taxon>,
-        target_contamination: Vec<Taxon>,
-        primary_filter: &TaxonFilterConfig,
-        secondary_filter: &TaxonFilterConfig,
-        target_filter: &TaxonFilterConfig,
-        config: &MetaGpConfig
-    ) -> Self {
-        Self {
-            primary,
-            secondary,
-            target,
-            primary_contamination,
-            secondary_contamination,
-            target_contamination,
-            primary_filter: primary_filter.clone(),
-            secondary_filter: secondary_filter.clone(),
-            target_filter: target_filter.clone(),
-            config: config.clone()
-        }
-    }
-    /// Remove from `secondary` any Taxon whose `lineage` also appears in `primary`,
-    /// then remove from `target` any Taxon whose `lineage` also appears in the 
-    /// pruned `secondary` and 'primary'
-    pub fn prune(&mut self) {
-
-        log::info!("Pruning tiered filter categories");
-        
-        // collect all lineages present in primary
-        let primary_lineages: HashSet<_> =
-            self.primary.iter().map(|t| t.lineage.clone()).collect();
-        let primary_contam_lineages: HashSet<_> =
-            self.primary_contamination.iter().map(|t| t.lineage.clone()).collect();
-
-        // drop from secondary anything already in primary
-        self.secondary
-            .retain(|t| !primary_lineages.contains(&t.lineage));
-        self.secondary
-            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
-
-        // now collect lineages in the (pruned) secondary
-        let secondary_lineages: HashSet<_> =
-            self.secondary.iter().map(|t| t.lineage.clone()).collect();
-        let secondary_contam_lineages: HashSet<_> =
-            self.secondary_contamination.iter().map(|t| t.lineage.clone()).collect();
-
-        // drop from target anything already in secondary
-        self.target
-            .retain(|t| !secondary_lineages.contains(&t.lineage));
-        self.target
-            .retain(|t| !secondary_contam_lineages.contains(&t.lineage));
-
-        // drop from target anything already in primary
-        self.target
-            .retain(|t| !primary_lineages.contains(&t.lineage));
-        self.target
-            .retain(|t| !primary_contam_lineages.contains(&t.lineage));
-
-    }
-    pub fn to_json(&self, path: &Path) -> Result<(), GptError> {
-        let data = serde_json::to_string_pretty(self).map_err(|err| GptError::SerdeJsonError(err))?;
-        let mut writer = BufWriter::new(File::create(path)?);
-        write!(writer, "{data}")?;
-        Ok(())
-    }
-    pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self, GptError> {
-        let data = std::fs::read_to_string(path)?;
-        let result = serde_json::from_str::<PrefetchData>(&data)?;
-        Ok(result)
-    }
-}
-
 pub struct DiagnosticAgent {
     pub state: AgentState,
     pub tree: DecisionTree,
-    pub client: Option<CerebroClient>,
     pub graph: Graph<TreeNode, TreeEdge>,
 }
 
 impl DiagnosticAgent {
-    pub fn new(client: Option<CerebroClient>, task_config: TaskConfig) -> Result<Self, GptError> {
+    pub fn new(task_config: TaskConfig) -> Result<Self, GptError> {
         
         let tree = DecisionTree::tiered(task_config)?;
         
         Ok(DiagnosticAgent {
             tree: tree.clone(),
-            client,
             state: AgentState::new(),
             graph: Self::graph(&tree)?
         })
-    }
-
-    pub fn prefetch(
-        &self, 
-        output: &Path, 
-        config: &MetaGpConfig, 
-        prevalence_contamination: HashMap<String, HashSet<String>>
-    ) -> Result<(), GptError> {
-        
-        log::info!("Fetching primary threshold data for sample '{}'", config.sample);
-
-        if let Some(client) = &self.client {
-            
-            let primary_filter_config = &TaxonFilterConfig::gp_above_threshold(
-                config.ignore_taxstr.clone()
-            );
-
-            let (primary, primary_contamination) = client.get_taxa( 
-                &CerebroIdentifierSchema::from_gp_config(config), 
-                primary_filter_config, 
-                prevalence_contamination.clone(),
-                config.prevalence_outliers.primary
-            )?;
-    
-            log::info!("Fetching secondary threshold data for sample '{}'", config.sample);
-    
-            let secondary_filter_config = &TaxonFilterConfig::gp_below_threshold(
-                config.ignore_taxstr.clone()
-            );
-
-            let (secondary, secondary_contamination) = client.get_taxa( 
-                &CerebroIdentifierSchema::from_gp_config(config), 
-                secondary_filter_config, 
-                prevalence_contamination.clone(),
-                config.prevalence_outliers.secondary
-            )?;
-    
-            log::info!("Fetching target threshold data for sample '{}'", config.sample);
-            let target_filter_config = &TaxonFilterConfig::gp_target_threshold(
-                config.ignore_taxstr.clone()
-            );
-            let (target, target_contamination) = client.get_taxa( 
-                &CerebroIdentifierSchema::from_gp_config(config), 
-                target_filter_config, 
-                prevalence_contamination.clone(),
-                config.prevalence_outliers.target
-            )?;
-
-            let mut prefetch_data = PrefetchData::new(
-                primary, 
-                secondary, 
-                target, 
-                primary_contamination,
-                secondary_contamination,
-                target_contamination,
-                primary_filter_config,
-                secondary_filter_config,
-                target_filter_config,
-                config
-            );
-
-            prefetch_data.prune();
-            prefetch_data.to_json(output)
-
-        } else {
-            Err(GptError::CerebroClientNotProvided)
-        }
-        
-
     }
     // Collapses GTDB species variants and sums the taxon evidence for
     // each combination of (id, tool, mode) returned from the taxon
@@ -1290,13 +1124,12 @@ impl DiagnosticAgent {
     #[cfg(feature = "local")]
     pub fn run_local(
         &mut self, 
+        prefetch: PrefetchData,
         text_generator: &mut TextGenerator, 
         sample_context: Option<SampleContext>, 
         clinical_context: Option<ClinicalContext>, 
         assay_context: Option<AssayContext>, 
         agent_primer: Option<AgentPrimer>,
-        config: &MetaGpConfig,
-        prefetch: PrefetchData,
         post_filter: Option<PostFilterConfig>,
         disable_thinking: bool
     ) -> Result<DiagnosticResult, GptError> {
