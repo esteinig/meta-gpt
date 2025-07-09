@@ -2,7 +2,6 @@ use clap::Parser;
 use meta_gpt::terminal::{App, Commands};
 use meta_gpt::utils::{init_logger};
 use nvml_wrapper::Nvml;
-use meta_gpt::model::{GeneratorModel, ModelGroup};
 
 #[cfg(feature = "local")]
 use meta_gpt::text::{TextGenerator, GeneratorConfig};

@@ -1669,12 +1669,24 @@ impl DiagnosticAgent {
 
         let re = regex::Regex::new(&pat)?;
 
-        let extracted = re.captures_iter(input)
+        let extracted: Vec<String> = re.captures_iter(input)
             .filter_map(|cap| cap.get(1))
             .map(|m| Self::strip_variant_tags(m.as_str()))  // GTDB genus or species variant tags are not informative and too unpredictable for clinical evaluation
             .collect();
-        
-        Ok(extracted)
+
+        // If we fail to extract the XML pattern <tag></tag> fall back to a relaxed approach of tag.../tag - can sometimes happen in the quantized Deepseek models using different tag braces e.g. [tag][/tag]
+        if extracted.is_empty() {
+
+            let re = regex::Regex::new(&format!(r"{0}(?s)(.*?)/{0}", tag))?;
+            let extracted = re.captures_iter(input)
+                .filter_map(|cap| cap.get(1))
+                .map(|m| Self::strip_variant_tags(m.as_str()))  // GTDB genus or species variant tags are not informative and too unpredictable for clinical evaluation
+                .collect();
+
+            Ok(extracted)
+        } else {
+            Ok(extracted)
+        }
     }
     pub fn graph(tree: &DecisionTree) -> Result<petgraph::Graph<TreeNode, TreeEdge>, GptError> {
 
