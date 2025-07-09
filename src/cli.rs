@@ -1,11 +1,7 @@
 
 use clap::Parser;
-use meta_gpt::gpt::DiagnosticAgent;
-use meta_gpt::gpt::ClinicalContext;
 use meta_gpt::terminal::{App, Commands};
-use meta_gpt::utils::{get_config, init_logger};
-use cerebro_client::client::CerebroClient;
-use meta_gpt::gpt::DiagnosticResult;
+use meta_gpt::utils::{init_logger};
 use nvml_wrapper::Nvml;
 
 #[cfg(feature = "local")]
