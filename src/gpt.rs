@@ -251,7 +251,6 @@ pub enum DiagnosticNode {
     AboveThresholdQuery,
     BelowThresholdQuery,
     TargetThresholdQuery,
-    BelowTargetThresholdQuery,
     IntegrateThresholds,
     DiagnoseInfectious,
     DiagnoseNonInfectious
@@ -981,7 +980,7 @@ impl DecisionTree {
             .label("check_below_and_target_threshold")
             .true_node("diagnose_infectious")
             .false_node("diagnose_non_infectious")
-            .with_check(DiagnosticNode::BelowTargetThresholdQuery)
+            .with_check(DiagnosticNode::IntegrateThresholds)
             .with_tasks(
                 match task_config {
                     TaskConfig::Default => NodeTask::DiagnoseDefault,
@@ -1271,12 +1270,12 @@ impl DiagnosticAgent {
                             .unwrap()
                             .to_standard_prompt(&agent_primer);
                         
-                        log::info!("\n\n{prompt}");
+                        log::debug!("\n\n{prompt}");
 
                         let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                         
-                        log::info!("{thoughts}\n\n");
-                        log::info!("{answer}");
+                        log::debug!("{thoughts}\n\n");
+                        log::debug!("{answer}");
 
                         (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
@@ -1325,12 +1324,12 @@ impl DiagnosticAgent {
                             .unwrap()
                             .to_standard_prompt(&agent_primer);
                         
-                        log::info!("\n\n{prompt}");
+                        log::debug!("\n\n{prompt}");
 
                         let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                         
-                        log::info!("{thoughts}\n\n");
-                        log::info!("{answer}");
+                        log::debug!("{thoughts}\n\n");
+                        log::debug!("{answer}");
 
                         (Self::extract_result(&answer,disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
@@ -1380,12 +1379,12 @@ impl DiagnosticAgent {
                             .unwrap()
                             .to_standard_prompt(&agent_primer);
                         
-                        log::info!("\n\n{prompt}");
+                        log::debug!("\n\n{prompt}");
 
                         let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                         
-                        log::info!("{thoughts}\n\n");
-                        log::info!("{answer}");
+                        log::debug!("{thoughts}\n\n");
+                        log::debug!("{answer}");
 
                         (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
