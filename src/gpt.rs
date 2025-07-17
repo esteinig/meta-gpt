@@ -1048,6 +1048,13 @@ fn dedent(input: &str) -> String {
         .join("\n")
 }
 
+
+#[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
+pub enum TreeConfig {
+    Tiered,
+    TieredThreshold
+}
+
 pub struct DiagnosticAgent {
     pub state: AgentState,
     pub tree: DecisionTree,
@@ -1055,9 +1062,12 @@ pub struct DiagnosticAgent {
 }
 
 impl DiagnosticAgent {
-    pub fn new(task_config: TaskConfig) -> Result<Self, GptError> {
+    pub fn new(task_config: TaskConfig, tree_config: TreeConfig) -> Result<Self, GptError> {
         
-        let tree = DecisionTree::tiered(task_config)?;
+        let tree = match tree_config {
+            TreeConfig::Tiered => DecisionTree::tiered(task_config)?,
+            TreeConfig::TieredThreshold => DecisionTree::tiered_threshold(task_config)?
+        };
         
         Ok(DiagnosticAgent {
             tree: tree.clone(),
