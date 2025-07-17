@@ -251,6 +251,7 @@ pub enum DiagnosticNode {
     AboveThresholdQuery,
     BelowThresholdQuery,
     TargetThresholdQuery,
+    BelowTargetThresholdQuery,
     IntegrateThresholds,
     DiagnoseInfectious,
     DiagnoseNonInfectious
@@ -960,7 +961,65 @@ impl DecisionTree {
             }
         )
     }
+    pub fn tiered_threshold(task_config: TaskConfig) -> Result<Self, GptError> {
 
+        let check_above_threshold = TreeNode::default()
+            .label("check_above_threshold")
+            .true_node("diagnose_infectious")
+            .false_node("check_below_threshold")
+            .with_check(DiagnosticNode::AboveThresholdQuery)
+            .with_tasks(
+                match task_config {
+                    TaskConfig::Default => NodeTask::DiagnoseDefault,
+                    TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultPrimary
+                }
+            )?
+            .with_instructions(NodeInstruction::DiagnoseDefault)?;
+
+        let check_below_and_target_threshold = TreeNode::default()
+            .label("check_below_and_target_threshold")
+            .true_node("diagnose_infectious")
+            .false_node("diagnose_non_infectious")
+            .with_check(DiagnosticNode::BelowTargetThresholdQuery)
+            .with_tasks(
+                match task_config {
+                    TaskConfig::Default => NodeTask::DiagnoseDefault,
+                    TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultSecondary,
+                }
+            )?
+            .with_instructions(NodeInstruction::DiagnoseDefault)?;
+        
+        let diagnose_infectious = TreeNode::default()
+            .label("diagnose_infectious")
+            .final_node(true)
+            .with_check(DiagnosticNode::DiagnoseInfectious)
+            .with_tasks(NodeTask::DiagnoseInfectious)?
+            .with_instructions(NodeInstruction::DiagnoseInfectious)?;
+        
+        let diagnose_non_infectious = TreeNode::default()
+            .label("diagnose_non_infectious")
+            .final_node(true)
+            .with_check(DiagnosticNode::DiagnoseNonInfectious);
+
+        let nodes = vec![
+            check_above_threshold,
+            check_below_and_target_threshold,
+            diagnose_infectious,
+            diagnose_non_infectious
+        ];
+        
+        Ok(
+            Self {
+                name: "tiered_threshold".to_string(),
+                version: "0.1.0".to_string(),
+                description: "Tiered decision making process using tiered filter sections of the metagenomic taxonomic profiling data as primary determination of infectious or non-infectious samples but limited to a single threshold above and below (below and target filter sections)".to_string(),
+                max_repeats: 3,
+                nodes: TreeNodes::from_vec(nodes)?
+            }
+        )
+    }
 }
 
 fn dedent(input: &str) -> String {
