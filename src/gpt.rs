@@ -965,7 +965,7 @@ impl DecisionTree {
         let check_above_threshold = TreeNode::default()
             .label("check_above_threshold")
             .true_node("diagnose_infectious")
-            .false_node("check_below_threshold")
+            .false_node("check_below_and_target_threshold")
             .with_check(DiagnosticNode::AboveThresholdQuery)
             .with_tasks(
                 match task_config {
