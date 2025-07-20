@@ -252,6 +252,7 @@ pub enum DiagnosticNode {
     BelowThresholdQuery,
     TargetThresholdQuery,
     IntegrateThresholds,
+    BelowTargetThresholdQuery,
     DiagnoseInfectious,
     DiagnoseNonInfectious
 }
@@ -980,7 +981,7 @@ impl DecisionTree {
             .label("check_below_and_target_threshold")
             .true_node("diagnose_infectious")
             .false_node("diagnose_non_infectious")
-            .with_check(DiagnosticNode::IntegrateThresholds)
+            .with_check(DiagnosticNode::BelowTargetThresholdQuery)
             .with_tasks(
                 match task_config {
                     TaskConfig::Default => NodeTask::DiagnoseDefault,
@@ -1349,6 +1350,74 @@ impl DiagnosticAgent {
 
                     );
                     
+                    match self.get_next_node_label(&current_node, result)? {
+                        Some(label) => node_label = label,
+                        None => break
+                    }
+                    
+                },
+                Some(DiagnosticNode::BelowTargetThresholdQuery) => {
+
+                    let target_taxa = prefetch.target.clone();
+
+                    let target_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(target_taxa, post_filter)?
+                    } else {
+                        target_taxa
+                    };
+
+                    let secondary_taxa = prefetch.secondary.clone();
+
+                    let secondary_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(secondary_taxa, post_filter)?
+                    } else {
+                        secondary_taxa
+                    };
+
+                    let (result, _, prompt, thoughts, answer) = if target_taxa.is_empty() && secondary_taxa.is_empty() {
+                        log::info!("No data retrieved for this node");
+                        (Some(false), None, None, None, None) // no taxa detected
+                    } else {
+
+                        let secondary_candidates = ThresholdCandidates::from_secondary_threshold(
+                            secondary_taxa.clone()
+                        ).to_str(true);
+
+                        let target_candidates = ThresholdCandidates::from_target_threshold(
+                            target_taxa.clone()
+                        ).to_str(true);
+
+                        let candidates = format!("{secondary_candidates}\n\n{target_candidates}");
+
+                        let prompt = current_node
+                            .clone()
+                            .with_context(&context)?
+                            .with_data(&candidates)?
+                            .question
+                            .unwrap()
+                            .to_standard_prompt(&agent_primer);
+                        
+                        log::debug!("\n\n{prompt}");
+
+                        let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
+                        
+                        log::debug!("{thoughts}\n\n");
+                        log::debug!("{answer}");
+
+                        (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                    };
+                    
+                    self.state.memorize(
+                        DiagnosticMemory::new(
+                            DiagnosticNode::BelowTargetThresholdQuery, 
+                            [secondary_taxa, target_taxa].concat(), 
+                            result, 
+                            prompt, 
+                            thoughts, 
+                            answer
+                        )
+                    );
+
                     match self.get_next_node_label(&current_node, result)? {
                         Some(label) => node_label = label,
                         None => break
