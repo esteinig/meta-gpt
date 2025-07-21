@@ -1635,6 +1635,23 @@ impl DiagnosticAgent {
                             }
                         }
                     };
+
+
+                    if let Some(memory) = self.state.retrieve(DiagnosticNode::BelowTargetThresholdQuery) {
+                        if let Some(result) = memory.result {
+                            if result {
+                                let below_target_candidates = ThresholdCandidates::from_integrate_threshold(
+                                    memory.data.clone()
+                                ).to_str(true);
+                                
+                                if !below_target_candidates.is_empty() {
+                                    candidates.push_str(&below_target_candidates);
+                                    candidates.push_str("\n\n");
+                                }
+                                memory_candidates.extend_from_slice(&memory.data);
+                            }
+                        }
+                    };
     
                     let prompt = current_node
                         .clone()
