@@ -1242,7 +1242,8 @@ impl DiagnosticAgent {
             match current_node.check {
                 Some(DiagnosticNode::AboveThresholdQuery) => {
 
-                    // Taxon 
+                    log::info!("AboveThreshold");
+                    
                     let primary_taxa = prefetch.primary.clone();
 
                     log::info!("Primary taxa: {}", primary_taxa.len());
@@ -1303,13 +1304,19 @@ impl DiagnosticAgent {
 
                 Some(DiagnosticNode::BelowThresholdQuery) => {
                     
+                    log::info!("BelowThreshold");
+
                     let secondary_taxa = prefetch.secondary.clone();
+
+                    log::info!("Secondary taxa: {}", secondary_taxa.len());
 
                     let secondary_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(secondary_taxa, post_filter)?
                     } else {
                         secondary_taxa
                     };
+
+                    log::info!("Secondary taxa post filter: {}", secondary_taxa.len());
 
                     let (result, _, prompt, thoughts, answer) = if !secondary_taxa.is_empty() {
 
@@ -1358,21 +1365,27 @@ impl DiagnosticAgent {
                 },
                 Some(DiagnosticNode::BelowTargetThresholdQuery) => {
 
-                    let target_taxa = prefetch.target.clone();
+                log::info!("SubThreshold = BelowThreshold + TargetThreshold");
 
-                    let target_taxa = if let Some(ref post_filter) = post_filter {
-                        Self::apply_post_filter(target_taxa, post_filter)?
-                    } else {
-                        target_taxa
-                    };
 
                     let secondary_taxa = prefetch.secondary.clone();
-
+                    log::info!("Secondary taxa: {}", secondary_taxa.len());
                     let secondary_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(secondary_taxa, post_filter)?
                     } else {
                         secondary_taxa
                     };
+                    log::info!("Secondary taxa post filter: {}", secondary_taxa.len());
+
+
+                    let target_taxa = prefetch.target.clone();
+                    log::info!("Target taxa: {}", target_taxa.len());
+                    let target_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(target_taxa, post_filter)?
+                    } else {
+                        target_taxa
+                    };
+                    log::info!("Target taxa post filter: {}", target_taxa.len());
 
                     let (result, _, prompt, thoughts, answer) = if target_taxa.is_empty() && secondary_taxa.is_empty() {
                         log::info!("No data retrieved for this node");
@@ -1426,14 +1439,18 @@ impl DiagnosticAgent {
                 },
                 Some(DiagnosticNode::TargetThresholdQuery) => {
 
+                    log::info!("TargetThreshold");
+
                     let target_taxa = prefetch.target.clone();
+                    log::info!("Target taxa: {}", target_taxa.len());
 
                     let target_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(target_taxa, post_filter)?
                     } else {
                         target_taxa
                     };
-
+                    log::info!("Target taxa post filter: {}", target_taxa.len());
+                    
                     let (result, _, prompt, thoughts, answer) = if !target_taxa.is_empty() {
 
                         let candidates = ThresholdCandidates::from_target_threshold(
@@ -1557,12 +1574,12 @@ impl DiagnosticAgent {
                                         .unwrap()
                                         .to_standard_prompt(&agent_primer);
                                     
-                                    log::info!("\n\n{prompt}");
+                                    log::debug!("\n\n{prompt}");
             
                                     let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                                     
-                                    log::info!("{thoughts}\n\n");
-                                    log::info!("{answer}");
+                                    log::debug!("{thoughts}\n\n");
+                                    log::debug!("{answer}");
 
                                     let result = Self::extract_result(&answer,disable_thinking)?;
 
@@ -1661,12 +1678,12 @@ impl DiagnosticAgent {
                         .unwrap()
                         .to_standard_prompt(&agent_primer);
                 
-                    log::info!("\n\n{prompt}");
+                    log::debug!("\n\n{prompt}");
 
                     let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
                     
-                    log::info!("{thoughts}\n\n");
-                    log::info!("{answer}");
+                    log::debug!("{thoughts}\n\n");
+                    log::debug!("{answer}");
 
 
                     let candidates = Self::extract_tags(&answer, "candidate", disable_thinking)?;

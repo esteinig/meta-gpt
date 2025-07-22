@@ -11,6 +11,7 @@ use candle_core::utils::{cuda_is_available, metal_is_available};
 use candle_transformers::models::quantized_llama as llama;
 use candle_transformers::models::quantized_qwen2 as qwen2;
 use candle_transformers::models::quantized_qwen3 as qwen3;
+use candle_transformers::models::quantized_gemma3 as gemma3;
 
 use candle_transformers::utils::apply_repeat_penalty;
 use candle_transformers::generation::{LogitsProcessor, Sampling};
@@ -65,6 +66,13 @@ impl InferenceModel for qwen3::ModelWeights {
     fn forward(&mut self, input: &Tensor, position: usize) -> Result<Tensor, GptError> {
         // delegate to the inherent method on ModelWeights
         Ok(qwen3::ModelWeights::forward(self, input, position)?)
+    }
+}
+
+impl InferenceModel for gemma3::ModelWeights {
+    fn forward(&mut self, input: &Tensor, position: usize) -> Result<Tensor, GptError> {
+        // delegate to the inherent method on ModelWeights
+        Ok(gemma3::ModelWeights::forward(self, input, position)?)
     }
 }
 
@@ -134,12 +142,27 @@ impl TextGenerator {
             | GeneratorModel::Qwen8bQ80 
             | GeneratorModel::Qwen14bQ80 
             | GeneratorModel::Qwen32bQ80 
-            | GeneratorModel::Qwen4bQ41 
-            | GeneratorModel::Qwen8bQ41 
-            | GeneratorModel::Qwen14bQ41 
-            | GeneratorModel::Qwen32bQ41 => {
+            | GeneratorModel::Qwen4bQ4KM 
+            | GeneratorModel::Qwen8bQ4KM 
+            | GeneratorModel::Qwen14bQ4KM 
+            | GeneratorModel::Qwen32bQ4KM            
+            | GeneratorModel::Qwen4bQ2KL
+            | GeneratorModel::Qwen8bQ2KL
+            | GeneratorModel::Qwen14bQ2KL
+            | GeneratorModel::Qwen32bQ2KL => {
 
                 let model = qwen3::ModelWeights::from_gguf(
+                    gguf, 
+                    &mut file, 
+                    &device
+                )?;
+                Box::new(model)
+            },
+            GeneratorModel::Gemma327bQ80
+            | GeneratorModel::Gemma312bQ80
+            | GeneratorModel::Gemma34bQ80 => {
+
+                let model = gemma3::ModelWeights::from_gguf(
                     gguf, 
                     &mut file, 
                     &device
@@ -210,10 +233,17 @@ impl TextGenerator {
                 | GeneratorModel::Qwen8bQ80 
                 | GeneratorModel::Qwen32bQ80
                 | GeneratorModel::Qwen14bQ80 
-                | GeneratorModel::Qwen4bQ41 
-                | GeneratorModel::Qwen8bQ41 
-                | GeneratorModel::Qwen14bQ41 
-                | GeneratorModel::Qwen32bQ41
+                | GeneratorModel::Qwen4bQ4KM 
+                | GeneratorModel::Qwen8bQ4KM 
+                | GeneratorModel::Qwen14bQ4KM 
+                | GeneratorModel::Qwen32bQ4KM
+                | GeneratorModel::Qwen4bQ2KL
+                | GeneratorModel::Qwen8bQ2KL
+                | GeneratorModel::Qwen14bQ2KL
+                | GeneratorModel::Qwen32bQ2KL
+                | GeneratorModel::Gemma327bQ80
+                | GeneratorModel::Gemma312bQ80
+                | GeneratorModel::Gemma34bQ80
             => {}
         }
 
