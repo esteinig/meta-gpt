@@ -8,6 +8,7 @@ use crate::{error::GptError, utils::TokenOutputStream};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ModelGroup {
+    Gemma,
     Qwen,
     NativeQwen,
     Deepseek,
@@ -17,6 +18,7 @@ pub enum ModelGroup {
 impl ModelGroup {
     pub fn to_models(self) -> Vec<GeneratorModel> {
         match self {
+            ModelGroup::Gemma => GeneratorModel::gemma(),
             ModelGroup::Qwen => GeneratorModel::qwen(),
             ModelGroup::NativeQwen => GeneratorModel::native_qwen(),
             ModelGroup::Deepseek => GeneratorModel::deepseek(),
