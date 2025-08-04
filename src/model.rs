@@ -259,9 +259,9 @@ impl GeneratorModel {
     // For writing files to disk
     pub fn model_name(&self) -> &'static str {
         match self {
-            GeneratorModel::Gemma327bQ80 => "gemma-3-27b-q8-0",
-            GeneratorModel::Gemma312bQ80 => "gemma-3-12b-q8-0",
-            GeneratorModel::Gemma34bQ80 => "gemma-3-4b-q8-0",
+            GeneratorModel::Gemma327bQ80 => "gemma-3-27b-it-q8-0",
+            GeneratorModel::Gemma312bQ80 => "gemma-3-12b-it-q8-0",
+            GeneratorModel::Gemma34bQ80 => "gemma-3-4b-it-q8-0",
             GeneratorModel::DeepseekR1Llama8bQ4KM  => "deepseekr1-llama8b-q4-km",
             GeneratorModel::DeepseekR1Qwen7bQ2KL => "deepseekr1-qwen7b-q2-kl",
             GeneratorModel::DeepseekR1Qwen7bQ4KM => "deepseekr1-qwen7b-q4-km",
