@@ -20,6 +20,47 @@ use crate::model::GeneratorModel;
 use crate::error::GptError;
 use crate::utils::TokenOutputStream;
 
+// 'min_p' filter implementation for LogitsProcessor
+// that mirrors implementation in llama.cpp:
+//
+// if (params.min_p > 0.0f) {
+//     for (int i = 0; i < n_vocab; ++i) {
+//         if (probs[i] < params.min_p) {
+//             probs[i] = 0.0f;
+//         }
+//     }
+//     float sum = std::accumulate(probs.begin(), probs.end(), 0.0f);
+//     for (int i = 0; i < n_vocab; ++i) {
+//         probs[i] /= sum;
+//     }
+// }
+
+pub trait LogitsFilter: Send + Sync {
+    fn filter(&self, probs: &mut [f32]);
+}
+
+pub struct MinPFilter {
+    pub min_p: f32,
+}
+
+impl LogitsFilter for MinPFilter {
+    fn filter(&self, probs: &mut [f32]) {
+        // Any probability value below min_p is clamped to zero. This eliminates low-probability tokens from sampling.
+        for p in probs.iter_mut() {
+            if *p < self.min_p {
+                *p = 0.0;
+            }
+        }
+        // After clamping, we normalize the remaining values so they sum to 1 again (required for correct multinomial sampling).
+        let sum: f32 = probs.iter().sum();
+        if sum > 0.0 {
+            for p in probs.iter_mut() {
+                *p /= sum;
+            }
+        }
+    }
+}
+
 
 pub fn device(gpu: usize) -> Result<Device, GptError> {
 
@@ -200,6 +241,10 @@ impl TextGenerator {
             log::info!("Prompt is: \n\n{prompt}\n\n");
         }
 
+        let min_p_filter: Option<Box<dyn LogitsFilter>> = self.config.min_p.map(|min_p| {
+            Box::new(MinPFilter { min_p: min_p as f32 }) as Box<dyn LogitsFilter>
+        });
+
         let tokens = tos
             .tokenizer()
             .encode(prompt, true)?;
@@ -270,7 +315,8 @@ impl TextGenerator {
             self.config.repeat_last_n,
             eos_token,
             self.config.split_prompt,
-            self.config.log_info
+            self.config.log_info,
+            min_p_filter.as_deref(),        
         )?;
 
         Ok((thoughts, answer))
@@ -288,6 +334,7 @@ impl TextGenerator {
         eos_token: u32,
         split_prompt: bool,
         log_info: bool,
+        logits_filter: Option<&dyn LogitsFilter>
     ) -> Result<(String, String), GptError> {
 
         // Holds all tokens generated
@@ -300,6 +347,7 @@ impl TextGenerator {
             split_prompt,
             &device,
             logits_processor,
+            logits_filter
         )?;
 
         all_tokens.push(first_token);
@@ -323,7 +371,8 @@ impl TextGenerator {
             eos_token,
             tos,
             &device,
-            log_info
+            log_info,
+            logits_filter
         )?;
 
         // Flush any trailing subwords and final newline
@@ -365,7 +414,8 @@ impl TextGenerator {
         eos_token: u32,
         tos: &mut TokenOutputStream,
         device: &Device,
-        log_info: bool
+        log_info: bool,
+        logits_filter: Option<&dyn LogitsFilter>
     ) -> Result<(String, u32, std::time::Duration), GptError> {
 
         let start = std::time::Instant::now();
@@ -386,7 +436,12 @@ impl TextGenerator {
             }
 
             // Sample, record, print & break on EOS
-            next_token = logits_processor.sample(&logits)?;
+            next_token = logits_processor.sample_f(&logits, |prs| {
+                if let Some(filter) = logits_filter {
+                    filter.filter(prs);
+                }
+            })?;
+
             all_tokens.push(next_token);
 
             if let Some(text) = tos.next_token(next_token)? {
@@ -411,19 +466,30 @@ impl TextGenerator {
         split_prompt: bool,
         device: &Device,
         logits_processor: &mut LogitsProcessor,
+        logits_filter: Option<&dyn LogitsFilter>,
     ) -> Result<(u32, std::time::Duration), GptError> {
         let start = std::time::Instant::now();
         
         let tok = if !split_prompt {
             let input = Tensor::new(tokens, device)?.unsqueeze(0)?;
             let logits = model.forward(&input, 0)?.squeeze(0)?;
-            logits_processor.sample(&logits)?
+
+            logits_processor.sample_f(&logits, |prs| {
+                if let Some(filter) = logits_filter {
+                    filter.filter(prs);
+                }
+            })?
+
         } else {
             let mut last = 0;
             for (pos, &tok) in tokens.iter().enumerate() {
                 let single = Tensor::new(&[tok], device)?.unsqueeze(0)?;
                 let logits = model.forward(&single, pos)?.squeeze(0)?;
-                last = logits_processor.sample(&logits)?;
+                last = logits_processor.sample_f(&logits, |prs| {
+                    if let Some(filter) = logits_filter {
+                        filter.filter(prs);
+                    }
+                })?
             }
             last
         };
@@ -572,6 +638,10 @@ pub struct TextGeneratorArgs {
     /// Only sample among the top K samples.
     #[arg(long, short='k')]
     pub top_k: Option<usize>,
+    
+    /// Minimum probability threshold for sampling (min_p sampling).
+    #[arg(long)]
+    pub min_p: Option<f64>,
 
     /// GPU device index to run on.
     #[arg(long, short='g', default_value_t=0)]
@@ -616,6 +686,7 @@ pub struct GeneratorConfig {
     pub seed: u64,
     pub top_k: Option<usize>,
     pub top_p: Option<f64>,
+    pub min_p: Option<f64>,
     pub repeat_penalty: f32,
     pub repeat_last_n: usize,
     pub log_info: bool,
@@ -636,6 +707,7 @@ impl Default for GeneratorConfig {
             seed: 299792458,
             top_k: None,
             top_p: None,
+            min_p: None,
             repeat_penalty: 1.1,
             repeat_last_n: 64,
             log_info: false,
@@ -667,6 +739,7 @@ impl GeneratorConfig {
             seed: args.seed,
             top_k: args.top_k.clone(),
             top_p: args.top_p.clone(),
+            min_p: args.min_p.clone(),
             repeat_penalty: args.repeat_penalty,
             repeat_last_n: args.repeat_last_n,
             log_info: args.log_info,
@@ -728,6 +801,11 @@ impl GeneratorConfigBuilder {
     }
     pub fn top_p(mut self, top_p: impl Into<Option<f64>>) -> Self {
         self.cfg.top_p = top_p.into();
+        self
+    }
+
+    pub fn min_p(mut self, min_p: impl Into<Option<f64>>) -> Self {
+        self.cfg.min_p = min_p.into();
         self
     }
     pub fn repeat_penalty(mut self, repeat_penalty: f32) -> Self {
