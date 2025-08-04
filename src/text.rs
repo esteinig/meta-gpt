@@ -212,7 +212,7 @@ impl TextGenerator {
             }
         };
 
-        log::info!("Inference model weights loaded on GPU.");
+        log::info!("Inference model weights loaded.");
 
         Ok(Self {
             model,

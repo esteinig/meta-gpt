@@ -209,6 +209,7 @@ impl AssayContext {
 pub enum SampleContext {
     Csf,
     Eye,
+    Spike,
     None
 }
 
@@ -217,6 +218,7 @@ impl SampleContext {
         let sample_type = match self {
             SampleContext::Csf => String::from("Cerebrospinal fluid (CSF)"),
             SampleContext::Eye => String::from("Vitreous fluid (VF)"),
+            SampleContext::Spike => String::from("Spike-in"),
             SampleContext::None => String::from("No sample context provided.")
         };
         format!("\n[Sample]\n{}\n\n", sample_type)
