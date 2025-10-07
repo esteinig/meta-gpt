@@ -788,12 +788,12 @@ dependencies = [
 [[package]]
 name = "candle-core"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9f51e2ecf6efe9737af8f993433c839f956d2b6ed4fd2dd4a7c6d8b0fa667ff"
+source = "git+https://github.com/huggingface/candle.git?rev=b1dbce09cd4cdc5af8069575a06646f0a858de7b#b1dbce09cd4cdc5af8069575a06646f0a858de7b"
 dependencies = [
  "byteorder",
  "candle-kernels",
  "cudarc",
+ "float8",
  "gemm 0.17.1",
  "half",
  "memmap2",
@@ -813,8 +813,7 @@ dependencies = [
 [[package]]
 name = "candle-kernels"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fcd989c2143aa754370b5bfee309e35fbd259e83d9ecf7a73d23d8508430775"
+source = "git+https://github.com/huggingface/candle.git?rev=b1dbce09cd4cdc5af8069575a06646f0a858de7b#b1dbce09cd4cdc5af8069575a06646f0a858de7b"
 dependencies = [
  "bindgen_cuda",
 ]
@@ -822,11 +821,11 @@ dependencies = [
 [[package]]
 name = "candle-nn"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1980d53280c8f9e2c6cbe1785855d7ff8010208b46e21252b978badf13ad69d"
+source = "git+https://github.com/huggingface/candle.git?rev=b1dbce09cd4cdc5af8069575a06646f0a858de7b#b1dbce09cd4cdc5af8069575a06646f0a858de7b"
 dependencies = [
  "candle-core",
  "half",
+ "libc",
  "num-traits",
  "rayon",
  "safetensors",
@@ -837,8 +836,7 @@ dependencies = [
 [[package]]
 name = "candle-transformers"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "186cb80045dbe47e0b387ea6d3e906f02fb3056297080d9922984c90e90a72b0"
+source = "git+https://github.com/huggingface/candle.git?rev=b1dbce09cd4cdc5af8069575a06646f0a858de7b#b1dbce09cd4cdc5af8069575a06646f0a858de7b"
 dependencies = [
  "byteorder",
  "candle-core",
@@ -1835,6 +1833,18 @@ name = "float-ord"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ce81f49ae8a0482e4c55ea62ebbd7e5a686af544c00b9d090bba3ff9be97b3d"
+
+[[package]]
+name = "float8"
+version = "0.2.1"
+source = "git+https://github.com/zackangelo/float8?branch=cudarc_0_16#03c1f5fe7cdb2f9cb690823fdd40593be57c408f"
+dependencies = [
+ "cudarc",
+ "half",
+ "num-traits",
+ "rand 0.9.2",
+ "rand_distr",
+]
 
 [[package]]
 name = "fnv"
