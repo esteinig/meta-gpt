@@ -717,13 +717,16 @@ impl Default for GeneratorConfig {
 }
 
 impl GeneratorConfig {
-    pub fn with_default(model: GeneratorModel, model_dir: PathBuf, sample_len: usize, temperature: f64, gpu: usize) -> Self {
+    pub fn with_default(model: GeneratorModel, model_dir: PathBuf, sample_len: usize, temperature: f64, top_k: Option<usize>, top_p: Option<f64>, min_p: Option<f64>, gpu: usize) -> Self {
         GeneratorConfigBuilder::new()
             .model(model)
             .model_dir(model_dir)
             .sample_len(sample_len)
             .temperature(temperature)
             .gpu(gpu)
+            .top_k(top_k)
+            .top_p(top_p)
+            .min_p(min_p)
             .build()
     }
     pub fn from_args(args: &TextGeneratorArgs) -> Self {

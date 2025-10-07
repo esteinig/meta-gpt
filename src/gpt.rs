@@ -1091,7 +1091,7 @@ impl DiagnosticAgent {
     //
     // Note: the prevalence filter uses the variants in the retrieval request!
     pub fn collapse_variants(taxa: Vec<Taxon>) -> Result<Vec<Taxon>, GptError> {
-        Ok(collapse_taxa(taxa)?)
+        Ok(collapse_taxa(taxa, true, None)?)
     }
     // Selects the species with the most evidence support if multiple species
     // of the same genus are detected - used for bacteria and eukaryots
