@@ -788,7 +788,8 @@ dependencies = [
 [[package]]
 name = "candle-core"
 version = "0.9.1"
-source = "git+https://github.com/huggingface/candle.git?branch=main#be411aa562740c04944097675a2c11d7ed79c72d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9f51e2ecf6efe9737af8f993433c839f956d2b6ed4fd2dd4a7c6d8b0fa667ff"
 dependencies = [
  "byteorder",
  "candle-kernels",
@@ -812,7 +813,8 @@ dependencies = [
 [[package]]
 name = "candle-kernels"
 version = "0.9.1"
-source = "git+https://github.com/huggingface/candle.git?branch=main#be411aa562740c04944097675a2c11d7ed79c72d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fcd989c2143aa754370b5bfee309e35fbd259e83d9ecf7a73d23d8508430775"
 dependencies = [
  "bindgen_cuda",
 ]
@@ -820,7 +822,8 @@ dependencies = [
 [[package]]
 name = "candle-nn"
 version = "0.9.1"
-source = "git+https://github.com/huggingface/candle.git?branch=main#be411aa562740c04944097675a2c11d7ed79c72d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1980d53280c8f9e2c6cbe1785855d7ff8010208b46e21252b978badf13ad69d"
 dependencies = [
  "candle-core",
  "half",
@@ -834,7 +837,8 @@ dependencies = [
 [[package]]
 name = "candle-transformers"
 version = "0.9.1"
-source = "git+https://github.com/huggingface/candle.git?branch=main#be411aa562740c04944097675a2c11d7ed79c72d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "186cb80045dbe47e0b387ea6d3e906f02fb3056297080d9922984c90e90a72b0"
 dependencies = [
  "byteorder",
  "candle-core",

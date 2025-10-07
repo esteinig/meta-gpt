@@ -65,8 +65,8 @@ clap = { version = "4.3.23", features = ["derive", "env", "unstable-styles", "wr
 tokenizers = { version = "0.21.1" }
 hf-hub = { version = "0.4.2" }
 
-candle-core = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
-candle-transformers = { git = "https://github.com/huggingface/candle.git", branch = "main", features = ["cuda"], optional = true }
+candle-core = { version = "0.9.1", features = ["cuda"], optional = true }
+candle-transformers = { version = "0.9.1", features = ["cuda"], optional = true }
 
 [features]
 default = []
