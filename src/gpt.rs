@@ -1807,6 +1807,10 @@ impl DiagnosticAgent {
                     Some(true)
                 } else if s.contains("<result>no</result>") {
                     Some(false)
+                } else if s.contains(">no</result>") {
+                    Some(false)
+                } else if s.contains(">yes</result>") {
+                    Some(true)
                 } else {
                     log::warn!("Failed to find result in answer: {s}");
                     None
