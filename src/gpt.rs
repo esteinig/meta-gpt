@@ -787,41 +787,41 @@ impl Into<String> for NodeTask {
         match self {
             NodeTask::DiagnoseDefault => dedent(r"  
                 1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                2. Consider the potential for background organisms from the environment, reagents and sample site. 
+                2. Consider the potential for background organisms from the environment, reagents and sample site. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
                 3. If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.".to_string(),
             
             NodeTask::DiagnoseDefaultPrimary => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                - Consider the potential for background organisms from reagents, sample site and the environment.
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultSecondary => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                - Consider the potential for background organisms from reagents, sample site and the environment. 
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultTarget => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.
-                - Consider the potential for background organisms from reagents, sample site and the environment. 
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultIntegrate => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.
-                - Consider the potential for background organisms from reagents, sample site and the environment. 
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultBelowTarget => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                - Consider the potential for background organisms from reagents, sample site and the environment. 
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseInfectious => dedent(r"  
                 You have made an infectious diagnosis for this sample. 
 
                 - Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information. 
-                - Consider the potential for background organisms from the environment, reagents and sample site. 
+                - Consider the potential for background organisms from the environment, reagents and sample site. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
                 - If the species is a human pathogen, consider selecting it as most likely pathogen.
                 - If a virus is detected, strongly consider selecting it as most likely pathogen.
             "),
