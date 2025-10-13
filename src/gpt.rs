@@ -778,50 +778,50 @@ pub enum NodeTask {
     DiagnoseDefaultSecondary,
     DiagnoseDefaultTarget,
     DiagnoseDefaultIntegrate,
-
     DiagnoseDefaultBelowTarget,
+
     DiagnoseInfectious,
 }
 impl Into<String> for NodeTask {
     fn into(self) -> String {
         match self {
             NodeTask::DiagnoseDefault => dedent(r"  
-                1. Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
-                2. Consider the potential for background organisms from the environment, reagents and sample site. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
-                3. If a virus is detected, strongly consider an infectious diagnosis.
+                - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis in the context of the provided sample type [Sample] and clinical information [Clinical]. Infectious clinical symptoms do not necessarily indicate an infectious cause.
+                - Consider the potential for background organisms from the environment, reagents and sample site. If an unusual organism is detected at extremely high abundance consider an infectious diagnosis.
+                - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseSimple => "Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.".to_string(),
             
             NodeTask::DiagnoseDefaultPrimary => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is detected at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultSecondary => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is detected at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultTarget => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.
-                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is detected at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultIntegrate => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis.
-                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is detected at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseDefaultBelowTarget => dedent(r"
                 - Determine if the metagenomic taxonomic profiling data [Data] supports an infectious diagnosis or a non-infectious diagnosis. 
-                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
+                - Consider the potential for background organisms from reagents, sample site and the environment. If an unusual organism is detected at extremely high abundance consider an infectious diagnosis.
                 - If a virus is detected, strongly consider an infectious diagnosis.
             "),
             NodeTask::DiagnoseInfectious => dedent(r"  
                 You have made an infectious diagnosis for this sample. 
 
                 - Determine the most likely pathogen from metagenomic taxonomic profiling data [Data] in the context of the provided sample type [Sample] and clinical information. 
-                - Consider the potential for background organisms from the environment, reagents and sample site. If an unusual organism is at extremely high abundance consider an infectious diagnosis.
+                - Consider the potential for background organisms from the environment, reagents and sample site. If an unusual organism is detected at extremely high abundance consider an infectious diagnosis.
                 - If the species is a human pathogen, consider selecting it as most likely pathogen.
                 - If a virus is detected, strongly consider selecting it as most likely pathogen.
             "),
@@ -1237,20 +1237,22 @@ impl DiagnosticAgent {
             pathogen: None
         };
 
+        let log_id = format!("[{}]", prefetch.config.sample);
+
         while let Some(node_ref) = self.tree.nodes.get(&node_label) {
 
             let current_node = node_ref.clone();
 
-            log::info!("Processing node: {}", node_label);
+            log::info!("{log_id} Processing node: {}", node_label);
             
             match current_node.check {
                 Some(DiagnosticNode::AboveThresholdQuery) => {
 
-                    log::info!("AboveThreshold");
+                    log::info!("{log_id} AboveThreshold");
                     
                     let primary_taxa = prefetch.primary.clone();
 
-                    log::info!("Primary taxa: {}", primary_taxa.len());
+                    log::info!("{log_id} Primary taxa: {}", primary_taxa.len());
 
                     let primary_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(primary_taxa, post_filter)?
@@ -1259,7 +1261,7 @@ impl DiagnosticAgent {
                     };
 
 
-                    log::info!("Primary taxa post filter: {}", primary_taxa.len());
+                    log::info!("{log_id} Primary taxa post filter: {}", primary_taxa.len());
                     
 
                     let (result, _, prompt, thoughts, answer) = if !primary_taxa.is_empty() {
@@ -1285,7 +1287,7 @@ impl DiagnosticAgent {
 
                         (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
-                        log::info!("No data retrieved for this node");
+                        log::info!("{log_id} No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
                     };
 
@@ -1300,7 +1302,7 @@ impl DiagnosticAgent {
                         )
                     );
                     
-                    match self.get_next_node_label(&current_node, result)? {
+                    match self.get_next_node_label(&current_node, result, &log_id)? {
                         Some(label) => node_label = label,
                         None => break
                     }
@@ -1308,11 +1310,11 @@ impl DiagnosticAgent {
 
                 Some(DiagnosticNode::BelowThresholdQuery) => {
                     
-                    log::info!("BelowThreshold");
+                    log::info!("{log_id} BelowThreshold");
 
                     let secondary_taxa = prefetch.secondary.clone();
 
-                    log::info!("Secondary taxa: {}", secondary_taxa.len());
+                    log::info!("{log_id} Secondary taxa: {}", secondary_taxa.len());
 
                     let secondary_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(secondary_taxa, post_filter)?
@@ -1320,7 +1322,7 @@ impl DiagnosticAgent {
                         secondary_taxa
                     };
 
-                    log::info!("Secondary taxa post filter: {}", secondary_taxa.len());
+                    log::info!("{log_id} Secondary taxa post filter: {}", secondary_taxa.len());
 
                     let (result, _, prompt, thoughts, answer) = if !secondary_taxa.is_empty() {
 
@@ -1345,7 +1347,7 @@ impl DiagnosticAgent {
 
                         (Self::extract_result(&answer,disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
-                        log::info!("No data retrieved for this node");
+                        log::info!("{log_id} No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
                     };
 
@@ -1361,7 +1363,7 @@ impl DiagnosticAgent {
 
                     );
                     
-                    match self.get_next_node_label(&current_node, result)? {
+                    match self.get_next_node_label(&current_node, result, &log_id)? {
                         Some(label) => node_label = label,
                         None => break
                     }
@@ -1369,30 +1371,30 @@ impl DiagnosticAgent {
                 },
                 Some(DiagnosticNode::BelowTargetThresholdQuery) => {
 
-                log::info!("SubThreshold = BelowThreshold + TargetThreshold");
+                log::info!("{log_id} SubThreshold = BelowThreshold + TargetThreshold");
 
 
                     let secondary_taxa = prefetch.secondary.clone();
-                    log::info!("Secondary taxa: {}", secondary_taxa.len());
+                    log::info!("{log_id} Secondary taxa: {}", secondary_taxa.len());
                     let secondary_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(secondary_taxa, post_filter)?
                     } else {
                         secondary_taxa
                     };
-                    log::info!("Secondary taxa post filter: {}", secondary_taxa.len());
+                    log::info!("{log_id} Secondary taxa post filter: {}", secondary_taxa.len());
 
 
                     let target_taxa = prefetch.target.clone();
-                    log::info!("Target taxa: {}", target_taxa.len());
+                    log::info!("{log_id} Target taxa: {}", target_taxa.len());
                     let target_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(target_taxa, post_filter)?
                     } else {
                         target_taxa
                     };
-                    log::info!("Target taxa post filter: {}", target_taxa.len());
+                    log::info!("{log_id} Target taxa post filter: {}", target_taxa.len());
 
                     let (result, _, prompt, thoughts, answer) = if target_taxa.is_empty() && secondary_taxa.is_empty() {
-                        log::info!("No data retrieved for this node");
+                        log::info!("{log_id} No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
                     } else {
 
@@ -1435,7 +1437,7 @@ impl DiagnosticAgent {
                         )
                     );
 
-                    match self.get_next_node_label(&current_node, result)? {
+                    match self.get_next_node_label(&current_node, result, &log_id)? {
                         Some(label) => node_label = label,
                         None => break
                     }
@@ -1443,17 +1445,17 @@ impl DiagnosticAgent {
                 },
                 Some(DiagnosticNode::TargetThresholdQuery) => {
 
-                    log::info!("TargetThreshold");
+                    log::info!("{log_id} TargetThreshold");
 
                     let target_taxa = prefetch.target.clone();
-                    log::info!("Target taxa: {}", target_taxa.len());
+                    log::info!("{log_id} Target taxa: {}", target_taxa.len());
 
                     let target_taxa = if let Some(ref post_filter) = post_filter {
                         Self::apply_post_filter(target_taxa, post_filter)?
                     } else {
                         target_taxa
                     };
-                    log::info!("Target taxa post filter: {}", target_taxa.len());
+                    log::info!("{log_id} Target taxa post filter: {}", target_taxa.len());
                     
                     let (result, _, prompt, thoughts, answer) = if !target_taxa.is_empty() {
 
@@ -1478,7 +1480,7 @@ impl DiagnosticAgent {
 
                         (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
                     } else {
-                        log::info!("No data retrieved for this node");
+                        log::info!("{log_id} No data retrieved for this node");
                         (Some(false), None, None, None, None) // no taxa detected
                     };
                     
@@ -1493,7 +1495,7 @@ impl DiagnosticAgent {
                         )
                     );
 
-                    match self.get_next_node_label(&current_node, result)? {
+                    match self.get_next_node_label(&current_node, result, &log_id)? {
                         Some(label) => node_label = label,
                         None => break
                     }
@@ -1502,7 +1504,7 @@ impl DiagnosticAgent {
                 Some(DiagnosticNode::IntegrateThresholds) => {
                     
                     // Retrieve the below and target threshold data and result memories
-                    log::info!("IntegrateThresholds");
+                    log::info!("{log_id} IntegrateThresholds");
                     let secondary_memory = self.state.retrieve(DiagnosticNode::BelowThresholdQuery).cloned();
                     let target_memory = self.state.retrieve(DiagnosticNode::TargetThresholdQuery).cloned();
 
@@ -1521,14 +1523,14 @@ impl DiagnosticAgent {
                                 // Continue with diagnosis if data was available in one of the diagnostic nodes but not the other
                                 // use the result from that stage to continue in the decision tree
                                 (false, true) => {
-                                    log::info!("Data only from secondary threshold node - continue to next node with result from secondary threshold node");
+                                    log::info!("{log_id} Data only from secondary threshold node - continue to next node with result from secondary threshold node");
 
                                     let mut secondary_memory_integrated = secondary_memory.clone();
                                     secondary_memory_integrated.node = DiagnosticNode::IntegrateThresholds;
 
                                     self.state.memorize(secondary_memory_integrated);
 
-                                    match self.get_next_node_label(&current_node, secondary_memory.result)? {
+                                    match self.get_next_node_label(&current_node, secondary_memory.result, &log_id)? {
                                         Some(label) => node_label = label,
                                         None => break
                                     }
@@ -1539,8 +1541,8 @@ impl DiagnosticAgent {
 
                                     self.state.memorize(target_memory_integrated);
 
-                                    log::info!("Data only from target threshold node - continue to next node with result from target threshold node");
-                                    match self.get_next_node_label(&current_node, target_memory.result)? {
+                                    log::info!("{log_id} Data only from target threshold node - continue to next node with result from target threshold node");
+                                    match self.get_next_node_label(&current_node, target_memory.result, &log_id)? {
                                         Some(label) => node_label = label,
                                         None => break
                                     }
@@ -1603,7 +1605,7 @@ impl DiagnosticAgent {
                                         )
                                     );
 
-                                    match self.get_next_node_label(&current_node, result)? {
+                                    match self.get_next_node_label(&current_node, result, &log_id)? {
                                         Some(label) => node_label = label,
                                         None => break
                                     }
@@ -1728,7 +1730,7 @@ impl DiagnosticAgent {
 
         Ok(result)
     }
-    fn get_next_node_label(&mut self, current_node: &TreeNode, result: Option<bool>) -> Result<Option<String>, GptError> {
+    fn get_next_node_label(&mut self, current_node: &TreeNode, result: Option<bool>, log_id: &str) -> Result<Option<String>, GptError> {
         
         let node_label = if let Some(next_node_label) = &current_node.next {
             Some(next_node_label.clone())
@@ -1736,7 +1738,7 @@ impl DiagnosticAgent {
             // Failed to extract expected decision value -> repeat node question (self-loop)
             match result {
                 None => {
-                    log::info!("Failed to extract decision from answer - intitiate repeat check.");
+                    log::info!("{log_id} Failed to extract decision from answer - intitiate repeat check.");
 
                     // Check the current node repeats before returning
                     let check_type = current_node.check.as_ref()

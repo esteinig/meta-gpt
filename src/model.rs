@@ -76,8 +76,8 @@ pub enum GeneratorModel {
     Qwen8bQ2KL,
     #[value(name = "qwen3-14b-q2-kl")]
     Qwen14bQ2KL,
-    #[value(name = "qwen3-32b-q2-kl")]
-    Qwen32bQ2KL,
+    #[value(name = "qwen3-32b-q2-kxl")]
+    Qwen32bQ2KXL,
 
     #[value(name = "qwen3-4b-q4-km")]
     Qwen4bQ4KM,
@@ -174,7 +174,7 @@ impl GeneratorModel {
                 => "Qwen/Qwen3-14B",
             GeneratorModel::Qwen32bQ80
                 | GeneratorModel::Qwen32bQ4KM
-                | GeneratorModel::Qwen32bQ2KL
+                | GeneratorModel::Qwen32bQ2KXL
                 => "Qwen/Qwen3-32B",
         }
     }
@@ -215,7 +215,7 @@ impl GeneratorModel {
                 => "unsloth/Qwen3-14B-GGUF",
             GeneratorModel::Qwen32bQ80
                 | GeneratorModel::Qwen32bQ4KM
-                | GeneratorModel::Qwen32bQ2KL
+                | GeneratorModel::Qwen32bQ2KXL
                 => "unsloth/Qwen3-32B-GGUF",
         }
     }
@@ -245,7 +245,7 @@ impl GeneratorModel {
             GeneratorModel::Qwen4bQ2KL => "Qwen3-4B-Q2_K_L.gguf",
             GeneratorModel::Qwen8bQ2KL => "Qwen3-8B-Q2_K_L.gguf",
             GeneratorModel::Qwen14bQ2KL => "Qwen3-14B-Q2_K_L.gguf",
-            GeneratorModel::Qwen32bQ2KL => "Qwen3-32B-Q2_K_L.gguf",
+            GeneratorModel::Qwen32bQ2KXL => "Qwen3-32B-Q2_K_XL.gguf",
             GeneratorModel::DeepseekR10528Qwen38bBf16 => "DeepSeek-R1-0528-Qwen3-8B-BF16.gguf",
             GeneratorModel::DeepseekR10528Qwen38bQ8KXL  => "DeepSeek-R1-0528-Qwen3-8B-UD-Q8_K_XL.gguf",
             GeneratorModel::DeepseekR10528Qwen38bQ80 => "DeepSeek-R1-0528-Qwen3-8B-Q8_0.gguf",
@@ -283,7 +283,7 @@ impl GeneratorModel {
             GeneratorModel::Qwen4bQ2KL => "qwen3-4b-q2-kl",
             GeneratorModel::Qwen8bQ2KL => "qwen3-8b-q2-kl",
             GeneratorModel::Qwen14bQ2KL => "qwen3-14b-q2-kl",
-            GeneratorModel::Qwen32bQ2KL => "qwen3-32b-q2-kl",
+            GeneratorModel::Qwen32bQ2KXL => "qwen3-32b-q2-kxl",
             GeneratorModel::DeepseekR10528Qwen38bBf16 => "deepseekr1-0528-qwen3-8b-bf16",
             GeneratorModel::DeepseekR10528Qwen38bQ8KXL  => "deepseekr1-0528-qwen3-8b-q8-kxl",
             GeneratorModel::DeepseekR10528Qwen38bQ80 => "deepseekr1-0528-qwen3-8b-q8-0"
@@ -332,7 +332,7 @@ impl GeneratorModel {
                 | GeneratorModel::Qwen4bQ2KL
                 | GeneratorModel::Qwen8bQ2KL
                 | GeneratorModel::Qwen14bQ2KL
-                | GeneratorModel::Qwen32bQ2KL
+                | GeneratorModel::Qwen32bQ2KXL
                 | GeneratorModel::Qwen8bQ80
                 | GeneratorModel::Qwen14bQ80 
                 | GeneratorModel::Qwen32bQ80
@@ -366,7 +366,7 @@ impl GeneratorModel {
             | GeneratorModel::Qwen4bQ2KL
             | GeneratorModel::Qwen8bQ2KL
             | GeneratorModel::Qwen14bQ2KL
-            | GeneratorModel::Qwen32bQ2KL => false,
+            | GeneratorModel::Qwen32bQ2KXL => false,
             GeneratorModel::DeepseekR10528Qwen38bBf16  
             | GeneratorModel::DeepseekR10528Qwen38bQ8KXL  
             | GeneratorModel::DeepseekR10528Qwen38bQ80
@@ -409,7 +409,7 @@ impl GeneratorModel {
             | GeneratorModel::Qwen4bQ2KL
             | GeneratorModel::Qwen8bQ2KL
             | GeneratorModel::Qwen14bQ2KL
-            | GeneratorModel::Qwen32bQ2KL => false,
+            | GeneratorModel::Qwen32bQ2KXL => false,
             GeneratorModel::DeepseekR1Llama8bQ4KM => true,
         }
     }
@@ -442,7 +442,7 @@ impl GeneratorModel {
             | GeneratorModel::Qwen4bQ2KL
             | GeneratorModel::Qwen8bQ2KL
             | GeneratorModel::Qwen14bQ2KL
-            | GeneratorModel::Qwen32bQ2KL => true,
+            | GeneratorModel::Qwen32bQ2KXL => true,
         }
     }
     pub fn is_gemma(&self) -> bool {
@@ -471,7 +471,7 @@ impl GeneratorModel {
             | GeneratorModel::Qwen4bQ2KL
             | GeneratorModel::Qwen8bQ2KL
             | GeneratorModel::Qwen14bQ2KL
-            | GeneratorModel::Qwen32bQ2KL => false,
+            | GeneratorModel::Qwen32bQ2KXL => false,
             | GeneratorModel::Gemma327bQ80
             | GeneratorModel::Gemma312bQ80
             | GeneratorModel::Gemma34bQ80 => true
