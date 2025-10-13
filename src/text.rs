@@ -190,7 +190,7 @@ impl TextGenerator {
             | GeneratorModel::Qwen4bQ2KL
             | GeneratorModel::Qwen8bQ2KL
             | GeneratorModel::Qwen14bQ2KL
-            | GeneratorModel::Qwen32bQ2KXL => {
+            | GeneratorModel::Qwen32bQ2KL => {
 
                 let model = qwen3::ModelWeights::from_gguf(
                     gguf, 
@@ -285,7 +285,7 @@ impl TextGenerator {
                 | GeneratorModel::Qwen4bQ2KL
                 | GeneratorModel::Qwen8bQ2KL
                 | GeneratorModel::Qwen14bQ2KL
-                | GeneratorModel::Qwen32bQ2KXL
+                | GeneratorModel::Qwen32bQ2KL
                 | GeneratorModel::Gemma327bQ80
                 | GeneratorModel::Gemma312bQ80
                 | GeneratorModel::Gemma34bQ80
