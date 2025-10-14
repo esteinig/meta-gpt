@@ -1255,7 +1255,11 @@ impl DiagnosticAgent {
 
         self.state.post_filter_config = post_filter.clone();
 
-        let mut node_label = "check_above_threshold".to_string();
+        let mut node_label = match self.tree.name.as_str() {
+            "single_node" => "check_above_sub_threshold",
+            _ => "check_above_threshold",
+        }.to_string();
+        
 
         let assay_ctx = match assay_context {
             Some(context) => context.text(),
