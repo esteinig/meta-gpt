@@ -100,21 +100,25 @@ pub struct ThresholdCandidates {
     pub primary_threshold: Option<Vec<Taxon>>,
     pub secondary_threshold: Option<Vec<Taxon>>,
     pub target_threshold: Option<Vec<Taxon>>,
-    pub integrate_threshold: Option<Vec<Taxon>>
+    pub integrate_threshold: Option<Vec<Taxon>>,
+    pub combined_threshold: Option<Vec<Taxon>>
 }
 
 impl ThresholdCandidates {
     pub fn from_primary_threshold(taxa: Vec<Taxon>) -> Self {
-        Self { primary_threshold: Some(taxa), secondary_threshold: None, target_threshold: None, integrate_threshold: None }
+        Self { primary_threshold: Some(taxa), secondary_threshold: None, target_threshold: None, integrate_threshold: None, combined_threshold: None }
     }
     pub fn from_secondary_threshold(taxa: Vec<Taxon>) -> Self {
-        Self { primary_threshold: None, secondary_threshold: Some(taxa), target_threshold: None, integrate_threshold: None }
+        Self { primary_threshold: None, secondary_threshold: Some(taxa), target_threshold: None, integrate_threshold: None, combined_threshold: None }
     }
     pub fn from_target_threshold(taxa: Vec<Taxon>) -> Self {
-        Self { primary_threshold: None, secondary_threshold: None, target_threshold: Some(taxa), integrate_threshold: None }
+        Self { primary_threshold: None, secondary_threshold: None, target_threshold: Some(taxa), integrate_threshold: None, combined_threshold: None }
     }
     pub fn from_integrate_threshold(taxa: Vec<Taxon>) -> Self {
-        Self { primary_threshold: None, secondary_threshold: None, target_threshold: None, integrate_threshold: Some(taxa) }
+        Self { primary_threshold: None, secondary_threshold: None, target_threshold: None, integrate_threshold: Some(taxa), combined_threshold: None }
+    }
+    pub fn from_combined_threshold(taxa: Vec<Taxon>) -> Self {
+        Self { primary_threshold: None, secondary_threshold: None, target_threshold: None, integrate_threshold: None, combined_threshold: Some(taxa) }
     }
     pub fn to_str(&self, evidence: bool) -> String {
         let mut output = String::new();
@@ -161,6 +165,18 @@ impl ThresholdCandidates {
             } else {
                 output.push_str("Secondary and target threshold taxa:\n\n");
                 let taxa: Vec<String> = integrate.iter().map(|taxon| taxon.species_data(evidence)).collect();
+                output.push_str(&taxa.join("\n\n"));
+            }
+        }
+
+
+        // Process combined list candidate taxa
+        if let Some(ref combined) = self.combined_threshold {
+            if combined.is_empty() {
+                output.push_str("No taxa detected.");
+            } else {
+                output.push_str("Primary, secondary and target threshold taxa:\n\n");
+                let taxa: Vec<String> = combined.iter().map(|taxon| taxon.species_data(evidence)).collect();
                 output.push_str(&taxa.join("\n\n"));
             }
         }
@@ -218,7 +234,7 @@ impl SampleContext {
         let sample_type = match self {
             SampleContext::Csf => String::from("Cerebrospinal fluid (CSF)"),
             SampleContext::Eye => String::from("Vitreous fluid (VF)"),
-            SampleContext::Spike => String::from("Spike-in"),
+            SampleContext::Spike => String::from("Spike-in sample (Laboratory)"),
             SampleContext::None => String::from("No sample context provided.")
         };
         format!("\n[Sample]\n{}\n\n", sample_type)
@@ -1363,6 +1379,8 @@ impl DiagnosticAgent {
 
                     log::info!("{log_id} AboveSubThreshold");
                     
+                    let mut combined_taxa = Vec::new();
+
                     let primary_taxa = prefetch.primary.clone();
                     log::info!("{log_id} Primary taxa: {}", primary_taxa.len());
                     let primary_taxa = if let Some(ref post_filter) = post_filter {
@@ -1371,7 +1389,7 @@ impl DiagnosticAgent {
                         primary_taxa
                     };
                     log::info!("{log_id} Primary taxa post filter: {}", primary_taxa.len());
-
+                    combined_taxa.extend_from_slice(&primary_taxa);
 
                     let secondary_taxa = prefetch.secondary.clone();
                     log::info!("{log_id} Secondary taxa: {}", secondary_taxa.len());
@@ -1381,6 +1399,7 @@ impl DiagnosticAgent {
                         secondary_taxa
                     };
                     log::info!("{log_id} Secondary taxa post filter: {}", secondary_taxa.len());
+                    combined_taxa.extend_from_slice(&secondary_taxa);
 
 
                     let target_taxa = prefetch.target.clone();
@@ -1391,6 +1410,7 @@ impl DiagnosticAgent {
                         target_taxa
                     };
                     log::info!("{log_id} Target taxa post filter: {}", target_taxa.len());
+                    combined_taxa.extend_from_slice(&target_taxa);
                     
 
                     let (result, _, prompt, thoughts, answer) = if !primary_taxa.is_empty() {
@@ -1433,7 +1453,7 @@ impl DiagnosticAgent {
                     self.state.memorize(
                         DiagnosticMemory::new(
                             DiagnosticNode::AboveSubThresholdQuery, 
-                            primary_taxa, 
+                            combined_taxa, 
                             result, 
                             prompt, 
                             thoughts, 
@@ -1776,6 +1796,25 @@ impl DiagnosticAgent {
                                     candidates.push_str(&primary_candidates);
                                     candidates.push_str("\n\n");
                                 }
+                                
+                                memory_candidates.extend_from_slice(&memory.data);
+                            }
+                        };
+                    };
+
+
+                    if let Some(memory) = self.state.retrieve(DiagnosticNode::AboveSubThresholdQuery) {
+                        if let Some(result) = memory.result {
+                            if result {
+                                let combined_candidates = ThresholdCandidates::from_combined_threshold(
+                                    memory.data.clone()
+                                ).to_str(true);
+                                
+                                if !combined_candidates.is_empty() {
+                                    candidates.push_str(&combined_candidates);
+                                    candidates.push_str("\n\n");
+                                }
+
                                 memory_candidates.extend_from_slice(&memory.data);
                             }
                         };
