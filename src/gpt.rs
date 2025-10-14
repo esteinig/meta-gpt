@@ -256,7 +256,8 @@ pub enum DiagnosticNode {
     IntegrateThresholds,
     BelowTargetThresholdQuery,
     DiagnoseInfectious,
-    DiagnoseNonInfectious
+    DiagnoseNonInfectious,
+    AboveSubThresholdQuery
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Eq, Hash, PartialEq)]
@@ -1024,6 +1025,51 @@ impl DecisionTree {
             }
         )
     }
+
+    pub fn single_node(task_config: TaskConfig) -> Result<Self, GptError> {
+
+        let check_above_sub_threshold = TreeNode::default()
+            .label("check_above_sub_threshold")
+            .true_node("diagnose_infectious")
+            .false_node("diagnose_non_infectious")
+            .with_check(DiagnosticNode::AboveSubThresholdQuery)
+            .with_tasks(
+                match task_config {
+                    TaskConfig::Default => NodeTask::DiagnoseDefault,
+                    TaskConfig::Simple => NodeTask::DiagnoseSimple,
+                    TaskConfig::Tiered => NodeTask::DiagnoseDefaultPrimary
+                }
+            )?
+            .with_instructions(NodeInstruction::DiagnoseDefault)?;
+        
+        let diagnose_infectious = TreeNode::default()
+            .label("diagnose_infectious")
+            .final_node(true)
+            .with_check(DiagnosticNode::DiagnoseInfectious)
+            .with_tasks(NodeTask::DiagnoseInfectious)?
+            .with_instructions(NodeInstruction::DiagnoseInfectious)?;
+        
+        let diagnose_non_infectious = TreeNode::default()
+            .label("diagnose_non_infectious")
+            .final_node(true)
+            .with_check(DiagnosticNode::DiagnoseNonInfectious);
+
+        let nodes = vec![
+            check_above_sub_threshold,
+            diagnose_infectious,
+            diagnose_non_infectious
+        ];
+        
+        Ok(
+            Self {
+                name: "single_node".to_string(),
+                version: "0.1.0".to_string(),
+                description: "Single node decision making process using tiered filter sections of the metagenomic taxonomic profiling data as primary determination of infectious or non-infectious samples".to_string(),
+                max_repeats: 3,
+                nodes: TreeNodes::from_vec(nodes)?
+            }
+        )
+    }
 }
 
 fn dedent(input: &str) -> String {
@@ -1056,7 +1102,8 @@ fn dedent(input: &str) -> String {
 #[derive(Clone, Debug, Deserialize, Serialize, clap::ValueEnum)]
 pub enum TreeConfig {
     Tiered,
-    TieredThreshold
+    TieredThreshold,
+    SingleNode
 }
 
 pub struct DiagnosticAgent {
@@ -1070,7 +1117,8 @@ impl DiagnosticAgent {
         
         let tree = match tree_config {
             TreeConfig::Tiered => DecisionTree::tiered(task_config)?,
-            TreeConfig::TieredThreshold => DecisionTree::tiered_threshold(task_config)?
+            TreeConfig::TieredThreshold => DecisionTree::tiered_threshold(task_config)?,
+            TreeConfig::SingleNode => DecisionTree::single_node(task_config)?
         };
         
         Ok(DiagnosticAgent {
@@ -1294,6 +1342,93 @@ impl DiagnosticAgent {
                     self.state.memorize(
                         DiagnosticMemory::new(
                             DiagnosticNode::AboveThresholdQuery, 
+                            primary_taxa, 
+                            result, 
+                            prompt, 
+                            thoughts, 
+                            answer
+                        )
+                    );
+                    
+                    match self.get_next_node_label(&current_node, result, &log_id)? {
+                        Some(label) => node_label = label,
+                        None => break
+                    }
+                },
+                Some(DiagnosticNode::AboveSubThresholdQuery) => {
+
+                    log::info!("{log_id} AboveSubThreshold");
+                    
+                    let primary_taxa = prefetch.primary.clone();
+                    log::info!("{log_id} Primary taxa: {}", primary_taxa.len());
+                    let primary_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(primary_taxa, post_filter)?
+                    } else {
+                        primary_taxa
+                    };
+                    log::info!("{log_id} Primary taxa post filter: {}", primary_taxa.len());
+
+
+                    let secondary_taxa = prefetch.secondary.clone();
+                    log::info!("{log_id} Secondary taxa: {}", secondary_taxa.len());
+                    let secondary_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(secondary_taxa, post_filter)?
+                    } else {
+                        secondary_taxa
+                    };
+                    log::info!("{log_id} Secondary taxa post filter: {}", secondary_taxa.len());
+
+
+                    let target_taxa = prefetch.target.clone();
+                    log::info!("{log_id} Target taxa: {}", target_taxa.len());
+                    let target_taxa = if let Some(ref post_filter) = post_filter {
+                        Self::apply_post_filter(target_taxa, post_filter)?
+                    } else {
+                        target_taxa
+                    };
+                    log::info!("{log_id} Target taxa post filter: {}", target_taxa.len());
+                    
+
+                    let (result, _, prompt, thoughts, answer) = if !primary_taxa.is_empty() {
+
+                        let primary_candidates = ThresholdCandidates::from_primary_threshold(
+                            primary_taxa.clone()
+                        ).to_str(true);
+
+                        let secondary_candidates = ThresholdCandidates::from_secondary_threshold(
+                            secondary_taxa.clone()
+                        ).to_str(true);
+
+                        let target_candidates = ThresholdCandidates::from_target_threshold(
+                            target_taxa.clone()
+                        ).to_str(true);
+
+                        let candidates = format!("{primary_candidates}\n\n{secondary_candidates}\n\n{target_candidates}");
+
+                        let prompt = current_node
+                            .clone()
+                            .with_context(&context)?
+                            .with_data(&candidates)?
+                            .question
+                            .unwrap()
+                            .to_standard_prompt(&agent_primer);
+                        
+                        log::debug!("\n\n{prompt}");
+
+                        let (thoughts, answer) = text_generator.run(&prompt, disable_thinking)?;
+                        
+                        log::debug!("{thoughts}\n\n");
+                        log::debug!("{answer}");
+
+                        (Self::extract_result(&answer, disable_thinking)?, None::<String>, Some(prompt), Some(thoughts), Some(answer))
+                    } else {
+                        log::info!("{log_id} No data retrieved for this node");
+                        (Some(false), None, None, None, None) // no taxa detected
+                    };
+
+                    self.state.memorize(
+                        DiagnosticMemory::new(
+                            DiagnosticNode::AboveSubThresholdQuery, 
                             primary_taxa, 
                             result, 
                             prompt, 
