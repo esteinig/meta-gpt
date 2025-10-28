@@ -225,6 +225,7 @@ impl AssayContext {
 pub enum SampleContext {
     Csf,
     Eye,
+    Tissue,
     Spike,
     None
 }
@@ -234,6 +235,7 @@ impl SampleContext {
         let sample_type = match self {
             SampleContext::Csf => String::from("Cerebrospinal fluid (CSF)"),
             SampleContext::Eye => String::from("Vitreous fluid (VF)"),
+            SampleContext::Tissue => String::from("Tissue (unknown source)"),
             SampleContext::Spike => String::from("Spike-in sample (Laboratory)"),
             SampleContext::None => String::from("No sample context provided.")
         };
@@ -333,7 +335,7 @@ impl TreeNode {
         Ok(self)
     }
 
-    /// Add or replace the “Context:” block (use placeholders here)
+    /// Add or replace the “Context:” block
     pub fn with_context<S: Into<String>>(mut self, context: S) -> Result<Self, GptError> {
         let context = context.into();
         match self.question.take() {
