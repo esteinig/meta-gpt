@@ -504,7 +504,7 @@ pub struct EvaluationDetails {
 // === Final Diagnostic Result Structure ===
 //
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Diagnosis {
     Infectious,
     InfectiousReview,
